@@ -5,6 +5,7 @@ class all_global_vars_class:
     def __init__(self):
         self._player_character = player_character()
         self._theme = theme()
+        self._section = "Starting"
 
 
 all_global_vars = all_global_vars_class()
