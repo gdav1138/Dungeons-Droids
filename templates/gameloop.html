@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dungeons & Droids</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    #log { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
+    input[type=text] { width: 80%; padding: 8px; }
+    button { padding: 8px; }
+  </style>
+</head>
+<body>
+  <h2>{{ response_text }}</h2>
+  <div id="log"></div>
+
+  <form id="commandForm">
+    <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    const form = document.getElementById('commandForm');
+    const logDiv = document.getElementById('log');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const command = document.getElementById('command').value;
+      document.getElementById('command').value = '';
+
+      const response = await fetch('/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command })
+      });
+      const data = await response.json();
+
+      logDiv.innerHTML += `<div>&gt; ${command}</div><div>${data.result}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    });
+  </script>
+</body>
+</html>
