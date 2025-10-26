@@ -29,34 +29,40 @@ def doSectionStarting(userId):
     all_global_vars.set_section(userId=userId, section="GetPlayerName")
     return client_response
 
-def doGetPlayerName(userInput):
+def doGetPlayerName(userInput, userId):
     client_response = ""
     new_name = userInput
-    all_global_vars._player_character.set_name(new_name)
+    all_global_vars.get_player_character(userId).set_name(new_name)
 
-    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars._theme._era + " for a character named " + all_global_vars._player_character.get_name() + ". Don't list any exits or items or anything other than a description of a location."
+    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location."
 
+    print("Calling gpt in getplayername")
     response = client.responses.create(
         model="gpt-5-nano",
         input=setup_string
     )
     client_response += response.output_text + "\n"
-    all_global_vars._section = "Finished"
+    all_global_vars.set_section(userId, "Finished")
+    print("Returning client-response")
     return client_response
 
 def getInput():
     return input()
 
 def getOutput(userInput, userId):
+    
     if userId not in all_global_vars._userIdList:
+        print("UserID not in userIdList")
         all_global_vars.create_player(userId)
     cur_section = all_global_vars.get_section(userId)
     if cur_section == "Starting":
+        print("Calling doStarting")
         return doSectionStarting(userId)
     if cur_section == "GetPlayerName":
-        return doGetPlayerName(userInput)
+        print("Calling getplayerName")
+        return doGetPlayerName(userInput, userId)
     if cur_section == "Finished":
-        quit()
+        return "Game Over!"
 
 
 load_dotenv()

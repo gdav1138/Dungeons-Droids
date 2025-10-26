@@ -23,19 +23,24 @@
     const logDiv = document.getElementById('log');
 
     form.addEventListener('submit', async (event) => {
-      event.preventDefault();
+      event.preventDefault(); // stop default page reload
       const command = document.getElementById('command').value;
       document.getElementById('command').value = '';
 
-      const response = await fetch('/play', {
+      // Send the command as JSON to Flask
+      const response = await fetch('/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command })
       });
-      const data = await response.json();
 
-      logDiv.innerHTML += `<div>&gt; ${command}</div><div>${data.result}</div>`;
-      logDiv.scrollTop = logDiv.scrollHeight;
+      // Optional: check for success
+      if (response.ok) {
+        // Force a full refresh so {{ response_text }} updates
+        window.location.reload();
+      } else {
+        logDiv.innerHTML += `<div style="color:red;">Error sending command</div>`;
+      }
     });
   </script>
 </body>
