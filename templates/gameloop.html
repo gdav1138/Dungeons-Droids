@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dungeons & Droids</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    #log { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
+    input[type=text] { width: 80%; padding: 8px; }
+    button { padding: 8px; }
+  </style>
+</head>
+<body>
+  <h2>{{ response_text }}</h2>
+  <div id="log"></div>
+
+  <form id="commandForm">
+    <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
+    <button type="submit">Send</button>
+  </form>
+
+  <script>
+    const form = document.getElementById('commandForm');
+    const logDiv = document.getElementById('log');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault(); // stop default page reload
+      const command = document.getElementById('command').value;
+      document.getElementById('command').value = '';
+
+      // Send the command as JSON to Flask
+      const response = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command })
+      });
+
+      // Optional: check for success
+      if (response.ok) {
+        // Force a full refresh so {{ response_text }} updates
+        window.location.reload();
+      } else {
+        logDiv.innerHTML += `<div style="color:red;">Error sending command</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
