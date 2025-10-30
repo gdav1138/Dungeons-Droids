@@ -1,3 +1,4 @@
+# Defines Player Character class, currently only stores the player's name #
 class player_character:
     def __init__(self):
         pass
@@ -5,3 +6,4 @@ class player_character:
         self._name = name_to_set
     def get_name(self):
         return self._name
+    
