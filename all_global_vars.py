@@ -1,11 +1,14 @@
+# Stores all global variables, per user-game based on their userID                       #
 from player_character import player_character
 from theme import theme
 
 class all_global_vars_class:
+    """Global container for all user sessions"""
     def __init__(self):
         self._userIdList = dict()
     
     def create_player(self, userId):
+        """Creates new player entry"""
         self._userIdList[userId] = dict()
         self._userIdList[userId]["player_character"] = player_character()
         self._userIdList[userId]["theme"] = theme()

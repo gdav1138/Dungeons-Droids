@@ -1,3 +1,5 @@
+# Main game logic file. Handles interactions between player inputs and OpenAI responses  #
+
 #print("Hello World")
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -6,8 +8,9 @@ import os
 
 
 def doSectionStarting(userId):
-    print("Starting up with userID: " + userId)
+    """Introduction section of the game where instructions are given to ChatGPT to greet the player, ask for their name, and set the era."""
     
+    print("Starting up with userID: " + userId)
 
     client_response = ""
     response = client.responses.create(
@@ -30,6 +33,7 @@ def doSectionStarting(userId):
     return client_response
 
 def doGetPlayerName(userInput, userId):
+    """Handles player name input. Stores it in player_character object, and generates a themed location using OpenAI API"""
     client_response = ""
     new_name = userInput
     all_global_vars.get_player_character(userId).set_name(new_name)
@@ -76,3 +80,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
