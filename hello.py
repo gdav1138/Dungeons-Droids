@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from all_global_vars import all_global_vars
 from open_ai_api import call_ai
 import os
+from main_loop import do_main_loop
 
 
 def doSectionStarting(userId):
@@ -31,7 +32,7 @@ def doGetPlayerName(userInput, userId):
     setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
 
     client_response += call_ai(setup_string) + "\n"
-    all_global_vars.set_section(userId, "Finished")
+    all_global_vars.set_section(userId, "MainGameLoop")
     return client_response
 
 def getInput():
@@ -39,19 +40,24 @@ def getInput():
 
 def getOutput(userInput, userId):
     
-    if userId not in all_global_vars._userIdList:
-        print("UserID not in userIdList")
-        all_global_vars.create_player(userId)
-    cur_section = all_global_vars.get_section(userId)
-    if cur_section == "Starting":
-        print("Calling doStarting")
-        return doSectionStarting(userId)
-    if cur_section == "GetPlayerName":
-        print("Calling getplayerName")
-        return doGetPlayerName(userInput, userId)
-    if cur_section == "Finished":
-        all_global_vars._userIdList.pop(userId)
-        return "Game Over!"
+    while True:
+        if userId not in all_global_vars._userIdList:
+            print("UserID not in userIdList")
+            all_global_vars.create_player(userId)
+            all_global_vars.set_section(userId, "Starting")
+        cur_section = all_global_vars.get_section(userId)
+        if cur_section == "Starting":
+            print("Calling doStarting")
+            return doSectionStarting(userId)
+        if cur_section == "GetPlayerName":
+            print("Calling getplayerName")
+            return doGetPlayerName(userInput, userId)
+        if cur_section == "MainGameLoop":
+            return do_main_loop(userInput, userId)
+        if cur_section == "Restart":
+            all_global_vars._userIdList.pop(userId)
+        
+        
 
 
 def main():

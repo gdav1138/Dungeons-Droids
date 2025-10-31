@@ -4,7 +4,7 @@
   <title>Dungeons & Droids</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
-    #log { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
+    #log { border: 1px solid #444; padding: 10px; height: 60vh; overflow-y: auto; margin-bottom: 10px; }
     input[type=text] { width: 80%; padding: 8px; }
     button { padding: 8px; }
   </style>
@@ -25,6 +25,7 @@
     const firstResponse = {{ first_response | tojson }};
     if (firstResponse && firstResponse !== "None") {
       logDiv.innerHTML += `<div>${firstResponse}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -34,6 +35,7 @@
 
       document.getElementById('command').value = '';
       logDiv.innerHTML += `<div style="color:#6f6;">> ${command}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
 
       try {
         const response = await fetch('/', {
