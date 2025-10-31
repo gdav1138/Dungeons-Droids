@@ -10,36 +10,43 @@
   </style>
 </head>
 <body>
-  <h2>{{ response_text }}</h2>
   <div id="log"></div>
 
-  <form id="commandForm">
+  <form id="commandForm" onsubmit="return false;">
     <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
     <button type="submit">Send</button>
   </form>
 
   <script>
-    const form = document.getElementById('commandForm');
     const logDiv = document.getElementById('log');
+    const form = document.getElementById('commandForm');
+
+    // Append the initial response from Flask
+    const firstResponse = {{ first_response | tojson }};
+    if (firstResponse && firstResponse !== "None") {
+      logDiv.innerHTML += `<div>${firstResponse}</div>`;
+    }
 
     form.addEventListener('submit', async (event) => {
-      event.preventDefault(); // stop default page reload
-      const command = document.getElementById('command').value;
+      event.preventDefault();
+      const command = document.getElementById('command').value.trim();
+      if (!command) return;
+
       document.getElementById('command').value = '';
+      logDiv.innerHTML += `<div style="color:#6f6;">> ${command}</div>`;
 
-      // Send the command as JSON to Flask
-      const response = await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command })
-      });
+      try {
+        const response = await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command })
+        });
 
-      // Optional: check for success
-      if (response.ok) {
-        // Force a full refresh so {{ response_text }} updates
-        window.location.reload();
-      } else {
-        logDiv.innerHTML += `<div style="color:red;">Error sending command</div>`;
+        const data = await response.json();
+        logDiv.innerHTML += `<div>${data.response}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+      } catch (err) {
+        logDiv.innerHTML += `<div style="color:red;">Error: ${err}</div>`;
       }
     });
   </script>
