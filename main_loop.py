@@ -1,3 +1,7 @@
+#The main gameplay loop. It has access to all the global variables, and has the input the user typed in
+# (userInput) and has to return a string that it wants to display to the user. A few commands have been
+#implemented as examples.
+
 from all_global_vars import all_global_vars
 from open_ai_api import call_ai
 

@@ -3,6 +3,10 @@ from flask import Flask, request, jsonify, session, render_template
 from hello import getOutput
 import uuid
 
+#What does this file do?
+#It loads up flask to serve web pages at the root / directory.
+#Every time the client connects, it gets the variables from the web browser() (input)
+#and then calls the getOutput function in hello.py, which tracks the state of the game.
 app = Flask(__name__)
 app.secret_key = "dungeons_and_droids_key"
 

@@ -1,4 +1,8 @@
-# Stores all global variables, per user-game based on their userID                       #
+# Stores all global variables, per user-game based on their userID                       
+# This is a key part of the program, and this will be stored in a database ASAP.
+# Each players variables have to be saved between commands so the web server can
+# remember them across commands and sessions.
+
 from player_character import player_character
 from theme import theme
 

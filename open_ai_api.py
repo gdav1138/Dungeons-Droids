@@ -1,3 +1,5 @@
+#Used to contact OpenAI and get a chat gpt response to a query that's provided to the function.
+
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
