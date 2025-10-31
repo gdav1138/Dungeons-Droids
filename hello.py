@@ -1,33 +1,23 @@
 # Main game logic file. Handles interactions between player inputs and OpenAI responses  #
 
-#print("Hello World")
 from openai import OpenAI
 from dotenv import load_dotenv
 from all_global_vars import all_global_vars
+from open_ai_api import call_ai
 import os
 
 
 def doSectionStarting(userId):
     """Introduction section of the game where instructions are given to ChatGPT to greet the player, ask for their name, and set the era."""
     
-    print("Starting up with userID: " + userId)
+    print("Starting up doSectionStarting with userID: " + str(userId))
 
     client_response = ""
-    response = client.responses.create(
-        model="gpt-5-nano",
-        input="Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user. Make it about 2 sentences."
-    )
-    client_response += response.output_text + "\n"
-    response = client.responses.create(
-        model="gpt-5-nano",
-        input="Pick an era for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi"
-    )
+    client_response += call_ai("Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user. Make it about 2 sentences.")
+    
+    all_global_vars.get_theme(userId)._era = call_ai("Pick an era for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi")
 
-    all_global_vars.get_theme(userId)._era = response.output_text
-
-    #print("This game takes place in the " + all_global_vars._theme._era + " era.")
     client_response += "This game takes place in the " + all_global_vars.get_theme(userId)._era + " era.\n"
-    #print ("What should we call your character?")
     client_response += "What should we call your character?"
     all_global_vars.set_section(userId=userId, section="GetPlayerName")
     return client_response
@@ -38,16 +28,10 @@ def doGetPlayerName(userInput, userId):
     new_name = userInput
     all_global_vars.get_player_character(userId).set_name(new_name)
 
-    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location."
+    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
 
-    print("Calling gpt in getplayername")
-    response = client.responses.create(
-        model="gpt-5-nano",
-        input=setup_string
-    )
-    client_response += response.output_text + "\n"
+    client_response += call_ai(setup_string) + "\n"
     all_global_vars.set_section(userId, "Finished")
-    print("Returning client-response")
     return client_response
 
 def getInput():
@@ -66,11 +50,9 @@ def getOutput(userInput, userId):
         print("Calling getplayerName")
         return doGetPlayerName(userInput, userId)
     if cur_section == "Finished":
+        all_global_vars._userIdList.pop(userId)
         return "Game Over!"
 
-
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def main():
     userInput = ""
