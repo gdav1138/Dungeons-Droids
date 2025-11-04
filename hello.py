@@ -7,22 +7,27 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from all_global_vars import all_global_vars
 from open_ai_api import call_ai
-import os
 from main_loop import do_main_loop
+from bson.objectid import ObjectId
+import user_db
+import character_db
+import os
 
 
 def doSectionStarting(userId):
     """Introduction section of the game where instructions are given to ChatGPT to greet the player, ask for their name, and set the era."""
-    
+
     print("Starting up doSectionStarting with userID: " + str(userId))
 
     client_response = ""
-    client_response += call_ai("Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user. Make it about 2 sentences.")
-    
-    all_global_vars.get_theme(userId)._era = call_ai("Pick an era for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi")
+    client_response += call_ai(
+        "Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user. Make it about 2 sentences. Try and go fast.")
+    client_response += "<BR>"
+    all_global_vars.get_theme(userId)._era = call_ai(
+        "Pick an theme for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi, try and go fast.")
 
-    client_response += "This game takes place in the " + all_global_vars.get_theme(userId)._era + " era.\n"
-    client_response += "What should we call your character?"
+    client_response += "This game takes place in the " + all_global_vars.get_theme(userId)._era + " era. <BR>"
+    client_response += "What should we call your character?<BR>"
     all_global_vars.set_section(userId=userId, section="GetPlayerName")
     return client_response
 
@@ -32,11 +37,23 @@ def doGetPlayerName(userInput, userId):
     new_name = userInput
     all_global_vars.get_player_character(userId).set_name(new_name)
 
-    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
+    rooms = all_global_vars.get_room_holder(userId)
+    rooms.add_empty_room(0,0)
+    rooms.add_empty_room(0,1)
+    cur_room = rooms.get_room(0,0)
 
+    # Update character with new_name
+    current_user = user_db.get_user_by_id(userId)
+    character_id = current_user["_player_character_id"]
+    character_db.update_char(character_id, {"name": new_name})
+
+    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
     client_response += call_ai(setup_string) + "\n"
+    cur_room._description = client_response
+    cur_room._visited = True
+
     all_global_vars.set_section(userId, "MainGameLoop")
-    return client_response
+    return rooms.get_full_description(userId)
 
 def getInput():
     return input()
@@ -46,7 +63,15 @@ def getOutput(userInput, userId):
     while True:
         if userId not in all_global_vars._userIdList:
             print("UserID not in userIdList")
+
+            # Generate Player
             all_global_vars.create_player(userId)
+            user_db.create_user(userId)   # Store user_id in MongoDB
+            character = all_global_vars.get_player_character(userId)
+            character_id = character_db.store_player_character(character)   # Store character and get character_id
+            user_db.update_user(userId, {"_player_character_id": character_id})   # Update user with character_id
+
+            # Update section
             all_global_vars.set_section(userId, "Starting")
         cur_section = all_global_vars.get_section(userId)
         if cur_section == "Starting":
@@ -60,8 +85,6 @@ def getOutput(userInput, userId):
         if cur_section == "Restart":
             all_global_vars._userIdList.pop(userId)
         
-        
-
 
 def main():
     userInput = ""
