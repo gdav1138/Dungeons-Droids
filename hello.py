@@ -12,6 +12,7 @@ from bson.objectid import ObjectId
 import user_db
 import character_db
 import os
+from room import room_holder, Room
 
 
 def doSectionStarting(userId):

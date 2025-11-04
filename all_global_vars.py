@@ -19,6 +19,10 @@ class all_global_vars_class:
         self._userIdList[userId]["player_character"] = player_character()
         self._userIdList[userId]["theme"] = theme()
         self._userIdList[userId]["section"] = "Starting"
+        
+        #has to be here to avoid circular imports
+        from room import room_holder
+        self._userIdList[userId]["rooms"] = room_holder()
 
         # has to be here to avoid circular imports
         from room import room_holder
@@ -35,6 +39,9 @@ class all_global_vars_class:
 
     def set_section(self, userId, section):
         self._userIdList[userId]["section"] = section
+    
+    def get_room_holder(self, userId):
+        return self._userIdList[userId]["rooms"]
 
     def get_room_holder(self, userId):
         return self._userIdList[userId]["rooms"]
