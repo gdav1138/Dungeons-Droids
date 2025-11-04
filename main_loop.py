@@ -4,6 +4,7 @@
 
 from all_global_vars import all_global_vars
 from open_ai_api import call_ai
+from room import room_holder, Room
 
 def do_main_loop(userInput, userId):
     userInput = userInput.lower()
@@ -12,5 +13,11 @@ def do_main_loop(userInput, userId):
         return "Restarting Game. Type in anything to continue."
     if userInput == 'help':
         return "Valid Commands:<BR>Restart - Restarts the game<BR>Help - this menu"
+    if userInput == 'look':
+        return all_global_vars.get_room_holder(userId).get_full_description(userId)
+    if userInput == 'north':
+        return all_global_vars.get_room_holder(userId).move_north(userId)
+    if userInput == 'south':
+        return all_global_vars.get_room_holder(userId).move_south(userId)
     else:
         return "Invalid input. Type help for options."
