@@ -34,13 +34,24 @@ def doSectionStarting(userId):
 
 def doGetPlayerName(userInput, userId):
     """Handles player name input. Stores it in player_character object, and generates a themed location using OpenAI API"""
+    import random
+    
     client_response = ""
     new_name = userInput
     all_global_vars.get_player_character(userId).set_name(new_name)
 
     rooms = all_global_vars.get_room_holder(userId)
-    rooms.add_empty_room(0,0)
-    rooms.add_empty_room(0,1)
+    
+    # Generate a maze of rooms with a clear path
+    # Create a simple branching dungeon structure
+    rooms.add_empty_room(0, 0)  # Starting room
+    rooms.add_empty_room(0, 1)  # North
+    rooms.add_empty_room(1, 1)  # East from north
+    rooms.add_empty_room(0, 2)  # North again
+    rooms.add_empty_room(1, 0)  # East from start
+    rooms.add_empty_room(2, 0)  # East again
+    rooms.add_empty_room(2, 1)  # North from east path
+    
     cur_room = rooms.get_room(0,0)
 
     # Update character with new_name
