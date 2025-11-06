@@ -1,11 +1,13 @@
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
+from map_generator import generate_room_map
 
 
 class Room:
     def __init__(self):
         self._description = "Not Generated Yet"
         self._visited = False
+        self._map_html = None
 
     def generate_description(self, userId):
         client_response = ""
@@ -67,6 +69,13 @@ class room_holder:
             self.get_current_room().generate_description(userId)
 
         ret_string = ""
+        theme_era = all_global_vars.get_theme(userId)._era
+        # Cache the rendered map HTML per room to avoid re-rendering every time
+        cur_room = self.get_current_room()
+        if not getattr(cur_room, "_map_html", None):
+            cur_room._map_html = generate_room_map(self, theme_era)
+        ret_string += cur_room._map_html
+        ret_string += "<BR>"
         ret_string += self.get_current_room()._description
         ret_string += "<BR>"
         ret_string += self.get_exits()
@@ -95,3 +104,107 @@ class room_holder:
                 return self.get_full_description(userId)
 
         return "Can't move that way!"
+
+    def move_east(self, userId):
+        """Move player to the east room if available"""
+        cur_x = self._cur_pos_x
+        cur_y = self._cur_pos_y
+        arr = self._array_of_rooms
+
+        if self._rows > cur_x + 1:
+            if arr[cur_y][cur_x + 1] is not None:
+                self._cur_pos_x += 1
+                return self.get_full_description(userId)
+
+        return "Can't move that way!"
+
+    def move_west(self, userId):
+        """Move player to the west room if available"""
+        cur_x = self._cur_pos_x
+        cur_y = self._cur_pos_y
+        arr = self._array_of_rooms
+
+        if cur_x - 1 >= 0:
+            if arr[cur_y][cur_x - 1] is not None:
+                self._cur_pos_x -= 1
+                return self.get_full_description(userId)
+
+        return "Can't move that way!"
+
+    def render_minimap(self):
+        """Return an HTML snippet with an ASCII-style minimap of rooms.
+
+        Legend:
+        - [E] current position (blue)
+        - [-] visited room (green)
+        - [?] undiscovered but generated room (dim)
+        Empty space means no room exists at that coordinate.
+        """
+
+        rows = self._rows
+        cols = self._cols
+        arr = self._array_of_rooms
+        cx = self._cur_pos_x
+        cy = self._cur_pos_y
+
+        def cell_token(x, y):
+            r = arr[y][x]
+            if r is None:
+                return '<span style="color:#333">···</span>'
+            if x == cx and y == cy:
+                return '<span style="color:#4da3ff">[E]</span>'
+            if getattr(r, "_visited", False):
+                return '<span style="color:#66ff66">[-]</span>'
+            return '<span style="color:#aaa">[?]</span>'
+
+        lines = []
+        # Render north (top) to south (bottom)
+        for y in range(rows - 1, -1, -1):
+            # cells row
+            row_parts = []
+            for x in range(cols):
+                row_parts.append(cell_token(x, y))
+                # horizontal connector between rooms
+                if x < cols - 1:
+                    if arr[y][x] is not None and arr[y][x + 1] is not None:
+                        row_parts.append('<span style="color:#777">───</span>')
+                    else:
+                        row_parts.append('   ')
+            lines.append(''.join(row_parts))
+
+            # vertical connectors (skip after last printed row)
+            if y > 0:
+                conn_parts = []
+                for x in range(cols):
+                    if arr[y][x] is not None and arr[y - 1][x] is not None:
+                        conn_parts.append(
+                            '  '
+                            '<span style="color:#777">│</span>'
+                            '  '
+                        )
+                    else:
+                        conn_parts.append('     ')
+                    # keep spacing with horizontal gaps too
+                    if x < cols - 1:
+                        conn_parts.append('   ')
+                lines.append(''.join(conn_parts))
+
+        legend = (
+            '<div style="margin-top:8px;color:#bbb">'
+            '<span style="color:#4da3ff">[E]</span> You   '
+            '<span style="color:#66ff66">[-]</span> Visited   '
+            '<span style="color:#aaa">[?]</span> Unexplored   '
+            '<span style="color:#777">─│</span> Passages'
+            '</div>'
+        )
+
+        wrapper = (
+            '<div style="border:1px solid #333;padding:8px;border-radius:6px;'
+            'background:#0b0b0b">'
+            + '<pre style="margin:0;line-height:1.2">'
+            + "\n".join(lines)
+            + '</pre>'
+            + legend
+            + '</div>'
+        )
+        return wrapper

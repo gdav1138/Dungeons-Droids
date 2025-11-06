@@ -4,13 +4,27 @@
   <title>Dungeons & Droids</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
-    #log { border: 1px solid #444; padding: 10px; height: 60vh; overflow-y: auto; margin-bottom: 10px; }
+    .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
+    .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; }
+    #log { height: 60vh; overflow-y: auto; }
+    #map { height: 60vh; overflow: auto; }
+    h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
+    form { margin-top: 12px; }
     input[type=text] { width: 80%; padding: 8px; }
     button { padding: 8px; }
   </style>
 </head>
 <body>
-  <div id="log"></div>
+  <div class="layout">
+    <div class="panel">
+      <h3>ADVENTURE LOG</h3>
+      <div id="log"></div>
+    </div>
+    <div class="panel">
+      <h3>MAP</h3>
+      <div id="map"></div>
+    </div>
+  </div>
 
   <form id="commandForm" onsubmit="return false;">
     <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
@@ -18,14 +32,19 @@
   </form>
 
   <script>
-    const logDiv = document.getElementById('log');
+  const logDiv = document.getElementById('log');
+  const mapDiv = document.getElementById('map');
     const form = document.getElementById('commandForm');
 
     // Append the initial response from Flask
     const firstResponse = {{ first_response | tojson }};
+    const firstMap = {{ first_map | tojson }};
     if (firstResponse && firstResponse !== "None") {
       logDiv.innerHTML += `<div>${firstResponse}</div>`;
       logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    if (firstMap && firstMap !== "None") {
+      mapDiv.innerHTML = firstMap;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -46,6 +65,7 @@
 
         const data = await response.json();
         logDiv.innerHTML += `<div>${data.response}</div>`;
+        if (data.map) { mapDiv.innerHTML = data.map; }
         logDiv.scrollTop = logDiv.scrollHeight;
       } catch (err) {
         logDiv.innerHTML += `<div style="color:red;">Error: ${err}</div>`;
