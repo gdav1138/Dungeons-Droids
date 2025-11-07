@@ -1,9 +1,9 @@
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
+import bcrypt
 import os
 import uuid
-import bcrypt
 
 
 
@@ -11,24 +11,6 @@ load_dotenv()
 client = MongoClient(os.getenv('URI'))
 db = client["dungeons_droids"]
 collection = db["users"]
-
-
-def hash_password(password):
-    """Hash a password using bcrypt"""
-    password_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    password_hash = bcrypt.hashpw(password_bytes, salt)
-    return password_hash.decode('utf-8')
-
-
-def verify_password(password, stored_hash):
-    """Verify a password against a stored bcrypt hash"""
-    try:
-        password_bytes = password.encode('utf-8')
-        stored_hash_bytes = stored_hash.encode('utf-8')
-        return bcrypt.checkpw(password_bytes, stored_hash_bytes)
-    except:
-        return False
 
 
 def create_user(user_id):
@@ -62,8 +44,8 @@ def register_user(username, password):
     # Generate unique user_id
     user_id = str(uuid.uuid4())
     
-    # Hash the password
-    password_hash = hash_password(password)
+    # Hash the password using bcrypt
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     
     user_doc = {
         "user_id": user_id,
@@ -90,9 +72,9 @@ def authenticate_user(username, password):
     if not user_doc:
         return None
     
-    # Check password
+    # Check password using bcrypt
     stored_hash = user_doc.get("password_hash", "")
-    if stored_hash and verify_password(password, stored_hash):
+    if stored_hash and bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
         return user_doc.get("user_id")
     return None
 

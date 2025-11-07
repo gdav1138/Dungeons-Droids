@@ -1,23 +1,12 @@
-<<<<<<< Updated upstream
 <!DOCTYPE html>
 <html>
 <head>
   <title>Dungeons & Droids</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
-<<<<<<< Updated upstream
-    #log { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
-    input[type=text] { width: 80%; padding: 8px; }
-    button { padding: 8px; }
-  </style>
-</head>
-<body>
-  <h2>{{ response_text }}</h2>
-  <div id="log"></div>
-=======
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
-    .username { color: #6f6; font-size: 14px; }
-    .logout-btn { padding: 6px 12px; background: #444; color: #eee; border: 1px solid #666; cursor: pointer; text-decoration: none; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .username { color: #6f6; }
+    .logout-btn { padding: 6px 12px; background: #444; color: #eee; border: 1px solid #666; cursor: pointer; text-decoration: none; }
     .logout-btn:hover { background: #555; }
     .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
     .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; }
@@ -25,10 +14,8 @@
     #map { height: 60vh; overflow: auto; }
     h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
     form { margin-top: 12px; }
-    input[type=text] { width: 80%; padding: 8px; background: #222; border: 1px solid #444; color: #eee; font-family: monospace; }
-    input[type=text]:focus { outline: none; border-color: #6f6; }
-    button { padding: 8px; background: #6f6; border: none; color: #111; font-weight: bold; cursor: pointer; font-family: monospace; }
-    button:hover { background: #5e5; }
+    input[type=text] { width: 80%; padding: 8px; }
+    button { padding: 8px; }
   </style>
 </head>
 <body>
@@ -36,86 +23,7 @@
     <div class="username">Logged in as: {{ username }}</div>
     <a href="/logout" class="logout-btn">Logout</a>
   </div>
-  
-  <div class="layout">
-    <div class="panel">
-      <h3>ADVENTURE LOG</h3>
-      <div id="log"></div>
-    </div>
-    <div class="panel">
-      <h3>MAP</h3>
-      <div id="map"></div>
-    </div>
-  </div>
->>>>>>> Stashed changes
 
-  <form id="commandForm">
-    <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
-    <button type="submit">Send</button>
-  </form>
-
-  <script>
-    const form = document.getElementById('commandForm');
-<<<<<<< Updated upstream
-    const logDiv = document.getElementById('log');
-=======
-
-    // Append the initial response from Flask
-    const firstResponse = {{ first_response | tojson }};
-    {% if first_map is defined %}
-    const firstMap = {{ first_map | tojson }};
-    {% else %}
-    const firstMap = null;
-    {% endif %}
-    if (firstResponse && firstResponse !== "None") {
-      logDiv.innerHTML += `<div>${firstResponse}</div>`;
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
-    if (firstMap && firstMap !== "None") {
-      mapDiv.innerHTML = firstMap;
-    }
->>>>>>> Stashed changes
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault(); // stop default page reload
-      const command = document.getElementById('command').value;
-      document.getElementById('command').value = '';
-
-      // Send the command as JSON to Flask
-      const response = await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command })
-      });
-
-      // Optional: check for success
-      if (response.ok) {
-        // Force a full refresh so {{ response_text }} updates
-        window.location.reload();
-      } else {
-        logDiv.innerHTML += `<div style="color:red;">Error sending command</div>`;
-      }
-    });
-  </script>
-</body>
-=======
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Dungeons & Droids</title>
-  <style>
-    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
-    .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
-    .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; }
-    #log { height: 60vh; overflow-y: auto; }
-    #map { height: 60vh; overflow: auto; }
-    h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
-    form { margin-top: 12px; }
-    input[type=text] { width: 80%; padding: 8px; }
-    button { padding: 8px; }
-  </style>
-</head>
-<body>
   <div class="layout">
     <div class="panel">
       <h3>ADVENTURE LOG</h3>
@@ -133,19 +41,21 @@
   </form>
 
   <script>
-  const logDiv = document.getElementById('log');
-  const mapDiv = document.getElementById('map');
+    const logDiv = document.getElementById('log');
+    const mapDiv = document.getElementById('map');
     const form = document.getElementById('commandForm');
 
     // Append the initial response from Flask
     const firstResponse = {{ first_response | tojson }};
+    {% if first_map is defined %}
     const firstMap = {{ first_map | tojson }};
+    if (firstMap && firstMap !== "None") {
+      mapDiv.innerHTML = firstMap;
+    }
+    {% endif %}
     if (firstResponse && firstResponse !== "None") {
       logDiv.innerHTML += `<div>${firstResponse}</div>`;
       logDiv.scrollTop = logDiv.scrollHeight;
-    }
-    if (firstMap && firstMap !== "None") {
-      mapDiv.innerHTML = firstMap;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -174,5 +84,4 @@
     });
   </script>
 </body>
->>>>>>> Stashed changes
 </html>
