@@ -4,6 +4,10 @@
   <title>Dungeons & Droids</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .username { color: #6f6; }
+    .logout-btn { padding: 6px 12px; background: #444; color: #eee; border: 1px solid #666; cursor: pointer; text-decoration: none; }
+    .logout-btn:hover { background: #555; }
     .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
     .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; }
     #log { height: 60vh; overflow-y: auto; }
@@ -15,6 +19,11 @@
   </style>
 </head>
 <body>
+  <div class="header">
+    <div class="username">Logged in as: {{ username }}</div>
+    <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+
   <div class="layout">
     <div class="panel">
       <h3>ADVENTURE LOG</h3>
@@ -32,19 +41,21 @@
   </form>
 
   <script>
-  const logDiv = document.getElementById('log');
-  const mapDiv = document.getElementById('map');
+    const logDiv = document.getElementById('log');
+    const mapDiv = document.getElementById('map');
     const form = document.getElementById('commandForm');
 
     // Append the initial response from Flask
     const firstResponse = {{ first_response | tojson }};
+    {% if first_map is defined %}
     const firstMap = {{ first_map | tojson }};
+    if (firstMap && firstMap !== "None") {
+      mapDiv.innerHTML = firstMap;
+    }
+    {% endif %}
     if (firstResponse && firstResponse !== "None") {
       logDiv.innerHTML += `<div>${firstResponse}</div>`;
       logDiv.scrollTop = logDiv.scrollHeight;
-    }
-    if (firstMap && firstMap !== "None") {
-      mapDiv.innerHTML = firstMap;
     }
 
     form.addEventListener('submit', async (event) => {
