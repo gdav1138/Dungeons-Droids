@@ -5,6 +5,7 @@
   <title>Dungeons & Droids</title>
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+<<<<<<< Updated upstream
     #log { border: 1px solid #444; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
     input[type=text] { width: 80%; padding: 8px; }
     button { padding: 8px; }
@@ -13,6 +14,40 @@
 <body>
   <h2>{{ response_text }}</h2>
   <div id="log"></div>
+=======
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
+    .username { color: #6f6; font-size: 14px; }
+    .logout-btn { padding: 6px 12px; background: #444; color: #eee; border: 1px solid #666; cursor: pointer; text-decoration: none; font-size: 12px; }
+    .logout-btn:hover { background: #555; }
+    .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
+    .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; }
+    #log { height: 60vh; overflow-y: auto; }
+    #map { height: 60vh; overflow: auto; }
+    h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
+    form { margin-top: 12px; }
+    input[type=text] { width: 80%; padding: 8px; background: #222; border: 1px solid #444; color: #eee; font-family: monospace; }
+    input[type=text]:focus { outline: none; border-color: #6f6; }
+    button { padding: 8px; background: #6f6; border: none; color: #111; font-weight: bold; cursor: pointer; font-family: monospace; }
+    button:hover { background: #5e5; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="username">Logged in as: {{ username }}</div>
+    <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+  
+  <div class="layout">
+    <div class="panel">
+      <h3>ADVENTURE LOG</h3>
+      <div id="log"></div>
+    </div>
+    <div class="panel">
+      <h3>MAP</h3>
+      <div id="map"></div>
+    </div>
+  </div>
+>>>>>>> Stashed changes
 
   <form id="commandForm">
     <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
@@ -21,7 +56,25 @@
 
   <script>
     const form = document.getElementById('commandForm');
+<<<<<<< Updated upstream
     const logDiv = document.getElementById('log');
+=======
+
+    // Append the initial response from Flask
+    const firstResponse = {{ first_response | tojson }};
+    {% if first_map is defined %}
+    const firstMap = {{ first_map | tojson }};
+    {% else %}
+    const firstMap = null;
+    {% endif %}
+    if (firstResponse && firstResponse !== "None") {
+      logDiv.innerHTML += `<div>${firstResponse}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    if (firstMap && firstMap !== "None") {
+      mapDiv.innerHTML = firstMap;
+    }
+>>>>>>> Stashed changes
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault(); // stop default page reload
