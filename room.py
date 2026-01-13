@@ -84,7 +84,13 @@ class room_holder:
         ret_string += "<BR>"
         ret_string += self.get_exits()
         return ret_string
-
+    
+    def describe_npc(self, userId):
+        return self.get_current_room()._npc._name + " looks like " + self.get_current_room()._npc._description
+    
+    def talk_to_npc(self, userId, talk_string):
+        return self.get_current_room()._npc.talk(userId, talk_string)
+    
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y

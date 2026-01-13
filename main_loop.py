@@ -14,7 +14,9 @@ def do_main_loop(userInput, userId):
     if userInput == 'help':
         return (
             "Valid Commands:<BR>Restart - Restarts the game<BR>"
-            + "Help - this menu"
+            + "Help - this menu<BR>"
+            + "north, south, east, west - Move to a new location<BR>"
+            + "describe npc - describes the npc in the room<BR>"
         )
     if userInput == 'look':
         return all_global_vars.get_room_holder(userId).get_full_description(
@@ -28,5 +30,9 @@ def do_main_loop(userInput, userId):
         return all_global_vars.get_room_holder(userId).move_east(userId)
     if userInput == 'west':
         return all_global_vars.get_room_holder(userId).move_west(userId)
-    else:
-        return "Invalid input. Type help for options."
+    if userInput == "describe npc":
+        return all_global_vars.get_room_holder(userId).describe_npc(userId)
+    if userInput.startswith("say"):
+        return all_global_vars.get_room_holder(userId).talk_to_npc(userId, userInput[3:])
+    
+    return "Invalid input. Type help for options."
