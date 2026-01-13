@@ -1,22 +1,23 @@
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
 from map_generator import generate_room_map
-
+from npc import npc
 
 class Room:
     def __init__(self):
         self._description = "Not Generated Yet"
         self._visited = False
         self._map_html = None
-        self._npc = "NPC_BOB_TEMP"
+        self._npc = None
 
     def generate_description(self, userId):
+        self._npc = npc(userId)
         client_response = ""
         setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(
             userId)._era + " for a character named " + all_global_vars.get_player_character(
             userId).get_name() + ". Don't list any exits or items or anything other than a description of a location."
         if self._npc is not None:
-            setup_string += "Include a mention of an NPC named " + self._npc
+            setup_string += "Include a mention of an NPC named " + self._npc._name + " and subtlely include the description " + self._npc._description
         client_response += call_ai(setup_string) + "\n"
         self._description = client_response
         self._visited = True
