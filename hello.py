@@ -22,7 +22,7 @@ def doSectionStarting(userId):
 
     client_response = ""
     client_response += call_ai(
-        "Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user. Make it about 2 sentences. Try and go fast.")
+        "Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user." )
     client_response += "<BR>"
     all_global_vars.get_theme(userId)._era = call_ai(
         "Pick an theme for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi, try and go fast.")
@@ -59,11 +59,8 @@ def doGetPlayerName(userInput, userId):
     character_id = current_user["_player_character_id"]
     character_db.update_char(character_id, {"name": new_name})
 
-    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
-    client_response += call_ai(setup_string) + "\n"
-    cur_room._description = client_response
-    cur_room._visited = True
-
+    cur_room.generate_description(userId)
+    
     all_global_vars.set_section(userId, "MainGameLoop")
     return rooms.get_full_description(userId)
 
