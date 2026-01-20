@@ -25,7 +25,7 @@ def doSectionStarting(userId):
         "Greet the player as our new Text Game With AI Called Dungeons and Droids. Don't give any instructions to the user." )
     client_response += "<BR>"
     all_global_vars.get_theme(userId)._era = call_ai(
-        "Pick an theme for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi, try and go fast.")
+        "Pick an theme for this game to take place in. Make the answer very short, just a word or two, like medieval or sci-fi, but be creative")
 
     client_response += "This game takes place in the " + all_global_vars.get_theme(userId)._era + " era. <BR>"
     client_response += "What should we call your character?<BR>"
