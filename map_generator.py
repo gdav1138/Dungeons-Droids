@@ -7,9 +7,9 @@ from ai_layout import get_map_layout
 
 def generate_room_map(room_holder, theme_era="Medieval"):
     """Generate a detailed top-down D&D style battle map"""
-    width = 800
-    height = 600
-    img = Image.new('RGB', (width, height), color='#2a2520')
+    width = 900
+    height = 675
+    img = Image.new('RGB', (width, height), color='#0d0d0d')
     draw = ImageDraw.Draw(img)
     
     # Get current room info
@@ -20,20 +20,45 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     description = current_room._description.lower() if current_room._description else ""
     
     # Set theme colors (defaults; AI layout may override floor colors)
-    theme_lower = theme_era.lower()
-    if 'cyber' in theme_lower or 'sci' in theme_lower:
+    theme_lower = theme_era.lower().strip()
+    print(f"DEBUG: Theme era = '{theme_era}', theme_lower = '{theme_lower}'")
+    if 'cyber' in theme_lower or 'sci' in theme_lower or 'punk' in theme_lower and 'steam' not in theme_lower:
+        print("DEBUG: Using cyberpunk colors")
         floor_base = '#1a2a3a'
         floor_accent = '#0d1a25'
         wall_base = '#0a1520'
         wall_accent = '#152535'
         furniture_color = '#2a4a5a'
-    elif 'steam' in theme_lower:
+    elif 'steam' in theme_lower or 'cog' in theme_lower:
+        print("DEBUG: Using steampunk colors")
         floor_base = '#4a3a2a'
         floor_accent = '#3a2a1a'
         wall_base = '#2a1a0a'
         wall_accent = '#4a2a1a'
         furniture_color = '#6a4a3a'
-    else:  # Medieval
+    elif 'west' in theme_lower or 'cowboy' in theme_lower or 'saloon' in theme_lower:
+        print("DEBUG: Using western colors")
+        floor_base = '#8b7355'
+        floor_accent = '#6b5345'
+        wall_base = '#5a4a3a'
+        wall_accent = '#7a6a5a'
+        furniture_color = '#a89070'
+    elif 'horror' in theme_lower or 'dark' in theme_lower or 'gothic' in theme_lower:
+        print("DEBUG: Using horror colors")
+        floor_base = '#1a1a1a'
+        floor_accent = '#0a0a0a'
+        wall_base = '#2a1a1a'
+        wall_accent = '#4a2a2a'
+        furniture_color = '#3a2a2a'
+    elif 'dystop' in theme_lower or 'post' in theme_lower:
+        print("DEBUG: Using dystopian colors")
+        floor_base = '#2a3a3a'
+        floor_accent = '#1a2a2a'
+        wall_base = '#1a1a2a'
+        wall_accent = '#2a2a4a'
+        furniture_color = '#3a3a5a'
+    else:  # Medieval (default)
+        print("DEBUG: Using medieval colors (default)")
         floor_base = '#5a4a3a'
         floor_accent = '#4a3a2a'
         wall_base = '#2a2520'
@@ -44,8 +69,8 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     random.seed(hash(f"{cur_x}_{cur_y}"))
     
     # Grid settings for tile-based drawing
-    tile_size = 20
-    margin = 60
+    tile_size = 30
+    margin = 75
     room_width = width - 2 * margin
     room_height = height - 2 * margin
     
@@ -53,9 +78,9 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     cols = room_holder._cols
     rows = room_holder._rows
     exits_map = {
-        'north': bool(cols > cur_y + 1 and room_array[cur_y + 1][cur_x] is not None),
+        'north': bool(cur_y + 1 < rows and room_array[cur_y + 1][cur_x] is not None),
         'south': bool(cur_y > 0 and room_array[cur_y - 1][cur_x] is not None),
-        'east': bool(rows > cur_x + 1 and room_array[cur_y][cur_x + 1] is not None),
+        'east': bool(cur_x + 1 < cols and room_array[cur_y][cur_x + 1] is not None),
         'west': bool(cur_x > 0 and room_array[cur_y][cur_x - 1] is not None),
     }
 
@@ -64,7 +89,9 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     if use_ai_layout:
         layout = get_map_layout(description, theme_era, exits_map)
     else:
-        layout = {"room_type": "chamber", "floor": {}}
+        # Most rooms are chambers (rectangular with occasional subtle alcoves)
+        room_types = ["chamber", "chamber", "chamber", "chamber"]
+        layout = {"room_type": random.choice(room_types), "floor": {}}
 
     # Allow AI to override floor colors
     try:
@@ -82,9 +109,61 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     # Configuration: keep rooms clean (no random props) unless toggled
     draw_furniture = False  # set True to re-enable props/furniture rendering
 
-    # Draw floor with detailed tiles
-    for y in range(margin, height - margin, tile_size):
-        for x in range(margin, width - margin, tile_size):
+    # Room mask helper
+    def create_room_mask(tiles_x, tiles_y, room_type):
+        m = [[False for _ in range(tiles_x)] for _ in range(tiles_y)]
+
+        def fill_rect(x1, y1, x2, y2):
+            for yy in range(y1, y2):
+                for xx in range(x1, x2):
+                    if 0 <= xx < tiles_x and 0 <= yy < tiles_y:
+                        m[yy][xx] = True
+
+        # Different room shapes and sizes
+        shape_choices = ["rect", "wide", "tall", "square"]
+        shape = random.choice(shape_choices)
+
+        w = max(3, tiles_x - 2)
+        h = max(3, tiles_y - 2)
+
+        if shape == "rect":
+            # Standard room
+            fill_rect((tiles_x - w)//2, (tiles_y - h)//2, (tiles_x + w)//2, (tiles_y + h)//2)
+        
+        elif shape == "wide":
+            # Wide rectangular room - use more width, less height
+            w = tiles_x - 1
+            h = max(4, tiles_y - 5)
+            fill_rect(0, (tiles_y - h)//2, tiles_x, (tiles_y + h)//2)
+        
+        elif shape == "tall":
+            # Tall rectangular room - use more height, less width
+            w = max(4, tiles_x - 5)
+            h = tiles_y - 1
+            fill_rect((tiles_x - w)//2, 0, (tiles_x + w)//2, tiles_y)
+        
+        elif shape == "square":
+            # More square-shaped room
+            side = min(w, h)
+            fill_rect((tiles_x - side)//2, (tiles_y - side)//2, (tiles_x + side)//2, (tiles_y + side)//2)
+        
+        else:
+            fill_rect((tiles_x - w)//2, (tiles_y - h)//2, (tiles_x + w)//2, (tiles_y + h)//2)
+
+        return m
+
+    # Determine room shape mask (walkable tiles) now that room_type is known
+    tiles_x = room_width // tile_size
+    tiles_y = room_height // tile_size
+    mask = create_room_mask(tiles_x, tiles_y, room_type)
+
+    # Draw floor with detailed tiles using mask
+    for gy, y in enumerate(range(margin, height - margin, tile_size)):
+        if gy >= tiles_y: break
+        for gx, x in enumerate(range(margin, width - margin, tile_size)):
+            if gx >= tiles_x: break
+            if not mask[gy][gx]:
+                continue
             # Add variation
             shade = random.randint(-12, 12)
             r = min(255, max(0, int(floor_base[1:3], 16) + shade))
@@ -95,6 +174,19 @@ def generate_room_map(room_holder, theme_era="Medieval"):
             # Draw tile
             draw.rectangle([x, y, x + tile_size - 1, y + tile_size - 1],
                           fill=color, outline=floor_accent, width=1)
+            
+            # Add subtle corner shadows for depth
+            shadow_size = 4
+            for i in range(shadow_size):
+                darkness = int(shade - (shadow_size - i) * 5)
+                sr = max(0, r + darkness)
+                sg = max(0, g + darkness)
+                sb = max(0, b + darkness)
+                shadow_color = f'#{sr:02x}{sg:02x}{sb:02x}'
+                draw.line([x + tile_size - shadow_size + i, y + tile_size - 1,
+                          x + tile_size - 1, y + tile_size - 1], fill=shadow_color)
+                draw.line([x + tile_size - 1, y + tile_size - shadow_size + i,
+                          x + tile_size - 1, y + tile_size - 1], fill=shadow_color)
             
             # Optional: accent tiles are disabled to reduce visual clutter
             # If desired, set probability and uncomment below
@@ -111,104 +203,137 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     has_east = exits_map['east']
     has_west = exits_map['west']
     
-    # Draw walls based on room type
-    if has_alley:
-        # Narrow alley with buildings on sides
-        alley_width = 200
-        alley_x = width // 2 - alley_width // 2
-        
-        # Left wall/building
-        draw_stone_wall(draw, margin, margin, alley_x - 20, height - margin, wall_base, wall_accent)
-        
-        # Right wall/building
-        draw_stone_wall(draw, alley_x + alley_width + 20, margin, width - margin, height - margin, wall_base, wall_accent)
-        
-        # Add details to buildings
-        for i in range(3):
-            y_pos = margin + 80 + i * 150
-            # Windows/features on left
-            draw.rectangle([margin + 20, y_pos, margin + 60, y_pos + 60],
-                          fill='#1a1a1a', outline=wall_accent, width=3)
-            # Windows/features on right
-            draw.rectangle([width - margin - 60, y_pos, width - margin - 20, y_pos + 60],
-                          fill='#1a1a1a', outline=wall_accent, width=3)
-        
-    elif has_tavern or has_library:
-        # Room with multiple areas
-        # Main walls
-        wall_thickness = 25
-        
-        # Outer walls
-        if not has_north:
-            draw_stone_wall(draw, margin, margin, width - margin, margin + wall_thickness, wall_base, wall_accent)
-        if not has_south:
-            draw_stone_wall(draw, margin, height - margin - wall_thickness, width - margin, height - margin, wall_base, wall_accent)
-        if not has_west:
-            draw_stone_wall(draw, margin, margin, margin + wall_thickness, height - margin, wall_base, wall_accent)
-        if not has_east:
-            draw_stone_wall(draw, width - margin - wall_thickness, margin, width - margin, height - margin, wall_base, wall_accent)
-        
-        # Add furniture (disabled unless draw_furniture is True)
-        if draw_furniture:
-            if has_tavern:
-                add_tavern_furniture(draw, margin, width, height, furniture_color)
-            elif has_library:
-                add_library_furniture(draw, margin, width, height, furniture_color)
-        
+    # Derive a bounding box from the mask for wall placement
+    bx_min = tiles_x
+    bx_max = 0
+    by_min = tiles_y
+    by_max = 0
+    for y in range(tiles_y):
+        for x in range(tiles_x):
+            if mask[y][x]:
+                bx_min = min(bx_min, x)
+                bx_max = max(bx_max, x)
+                by_min = min(by_min, y)
+                by_max = max(by_max, y)
+    if bx_min > bx_max or by_min > by_max:
+        bx_min, by_min, bx_max, by_max = 0, 0, tiles_x - 1, tiles_y - 1
+
+    # Convert to pixel coords
+    wall_thickness = 38
+    wx1 = margin + bx_min * tile_size
+    wy1 = margin + by_min * tile_size
+    wx2 = margin + (bx_max + 1) * tile_size
+    wy2 = margin + (by_max + 1) * tile_size
+
+    # Draw outer walls on mask bounds with exits
+    if not has_north:
+        draw_stone_wall(draw, wx1, wy1, wx2, wy1 + wall_thickness, wall_base, wall_accent)
     else:
-        # Standard room with walls
-        wall_thickness = 25
-        
-        # Draw walls with openings for exits
-        if not has_north:
-            draw_stone_wall(draw, margin, margin, width - margin, margin + wall_thickness, wall_base, wall_accent)
+        door_width = 80
+        door_x = (wx1 + wx2) // 2 - door_width // 2
+        draw_stone_wall(draw, wx1, wy1, door_x - 10, wy1 + wall_thickness, wall_base, wall_accent)
+        draw_stone_wall(draw, door_x + door_width + 10, wy1, wx2, wy1 + wall_thickness, wall_base, wall_accent)
+        draw_door(draw, door_x, wy1, door_width, wall_thickness, 'north', furniture_color)
+
+    if not has_south:
+        draw_stone_wall(draw, wx1, wy2 - wall_thickness, wx2, wy2, wall_base, wall_accent)
+    else:
+        door_width = 80
+        door_x = (wx1 + wx2) // 2 - door_width // 2
+        draw_stone_wall(draw, wx1, wy2 - wall_thickness, door_x - 10, wy2, wall_base, wall_accent)
+        draw_stone_wall(draw, door_x + door_width + 10, wy2 - wall_thickness, wx2, wy2, wall_base, wall_accent)
+        draw_door(draw, door_x, wy2 - wall_thickness, door_width, wall_thickness, 'south', furniture_color)
+
+    if not has_west:
+        draw_stone_wall(draw, wx1, wy1, wx1 + wall_thickness, wy2, wall_base, wall_accent)
+    else:
+        door_height = 80
+        door_y = (wy1 + wy2) // 2 - door_height // 2
+        draw_stone_wall(draw, wx1, wy1, wx1 + wall_thickness, door_y - 10, wall_base, wall_accent)
+        draw_stone_wall(draw, wx1, door_y + door_height + 10, wx1 + wall_thickness, wy2, wall_base, wall_accent)
+        draw_door(draw, wx1, door_y, wall_thickness, door_height, 'west', furniture_color)
+
+    if not has_east:
+        draw_stone_wall(draw, wx2 - wall_thickness, wy1, wx2, wy2, wall_base, wall_accent)
+    else:
+        door_height = 80
+        door_y = (wy1 + wy2) // 2 - door_height // 2
+        draw_stone_wall(draw, wx2 - wall_thickness, wy1, wx2, door_y - 10, wall_base, wall_accent)
+        draw_stone_wall(draw, wx2 - wall_thickness, door_y + door_height + 10, wx2, wy2, wall_base, wall_accent)
+        draw_door(draw, wx2 - wall_thickness, door_y, wall_thickness, door_height, 'east', furniture_color)
+
+    # If AI provided props, draw them; otherwise fallback to heuristic furniture
+    if draw_furniture:
+        props = layout.get('props') or []
+        if props:
+            for p in props:
+                _draw_prop(draw, p, margin, width, height, furniture_color, theme_lower)
         else:
-            # Wall with door opening
-            door_width = 80
-            door_x = width // 2 - door_width // 2
-            draw_stone_wall(draw, margin, margin, door_x - 10, margin + wall_thickness, wall_base, wall_accent)
-            draw_stone_wall(draw, door_x + door_width + 10, margin, width - margin, margin + wall_thickness, wall_base, wall_accent)
-            draw_door(draw, door_x, margin, door_width, wall_thickness, 'north', furniture_color)
+            add_room_furniture(draw, description, margin, width, height, furniture_color, theme_lower)
+    
+    # Draw items in the room
+    if hasattr(current_room, '_items') and current_room._items:
+        item_positions = []
+        num_items = len(current_room._items)
         
-        if not has_south:
-            draw_stone_wall(draw, margin, height - margin - wall_thickness, width - margin, height - margin, wall_base, wall_accent)
-        else:
-            door_width = 80
-            door_x = width // 2 - door_width // 2
-            draw_stone_wall(draw, margin, height - margin - wall_thickness, door_x - 10, height - margin, wall_base, wall_accent)
-            draw_stone_wall(draw, door_x + door_width + 10, height - margin - wall_thickness, width - margin, height - margin, wall_base, wall_accent)
-            draw_door(draw, door_x, height - margin - wall_thickness, door_width, wall_thickness, 'south', furniture_color)
+        # Generate random positions for items that don't overlap with player center
+        for i in range(num_items):
+            attempts = 0
+            while attempts < 10:
+                # Random position within the room bounds, avoiding center
+                ix = wx1 + 60 + random.randint(0, (wx2 - wx1 - 120))
+                iy = wy1 + 60 + random.randint(0, (wy2 - wy1 - 120))
+                
+                # Check if far enough from center
+                center_x = (wx1 + wx2) // 2
+                center_y = (wy1 + wy2) // 2
+                dist = ((ix - center_x)**2 + (iy - center_y)**2)**0.5
+                
+                if dist > 50:  # At least 50 pixels from center
+                    item_positions.append((ix, iy))
+                    break
+                attempts += 1
         
-        if not has_west:
-            draw_stone_wall(draw, margin, margin, margin + wall_thickness, height - margin, wall_base, wall_accent)
-        else:
-            door_height = 80
-            door_y = height // 2 - door_height // 2
-            draw_stone_wall(draw, margin, margin, margin + wall_thickness, door_y - 10, wall_base, wall_accent)
-            draw_stone_wall(draw, margin, door_y + door_height + 10, margin + wall_thickness, height - margin, wall_base, wall_accent)
-            draw_door(draw, margin, door_y, wall_thickness, door_height, 'west', furniture_color)
-        
-        if not has_east:
-            draw_stone_wall(draw, width - margin - wall_thickness, margin, width - margin, height - margin, wall_base, wall_accent)
-        else:
-            door_height = 80
-            door_y = height // 2 - door_height // 2
-            draw_stone_wall(draw, width - margin - wall_thickness, margin, width - margin, door_y - 10, wall_base, wall_accent)
-            draw_stone_wall(draw, width - margin - wall_thickness, door_y + door_height + 10, width - margin, height - margin, wall_base, wall_accent)
-            draw_door(draw, width - margin - wall_thickness, door_y, wall_thickness, door_height, 'east', furniture_color)
-        
-        # If AI provided props, draw them; otherwise fallback to heuristic furniture
-        if draw_furniture:
-            props = layout.get('props') or []
-            if props:
-                for p in props:
-                    _draw_prop(draw, p, margin, width, height, furniture_color, theme_lower)
-            else:
-                add_room_furniture(draw, description, margin, width, height, furniture_color, theme_lower)
+        # Draw items
+        for i, item in enumerate(current_room._items):
+            if i < len(item_positions):
+                ix, iy = item_positions[i]
+                item_type = item.get_type()
+                
+                # Draw different shapes/colors based on item type
+                if item_type == 'weapon':
+                    # Draw a sword-like shape
+                    draw.polygon([(ix, iy - 15), (ix - 4, iy + 10), (ix + 4, iy + 10)],
+                               fill='#c0c0c0', outline='#808080')
+                    draw.rectangle([ix - 2, iy + 10, ix + 2, iy + 15],
+                                 fill='#8b4513', outline='#654321')
+                elif item_type == 'armor':
+                    # Draw a shield shape
+                    draw.polygon([(ix, iy - 12), (ix - 10, iy), (ix - 8, iy + 10), 
+                                 (ix + 8, iy + 10), (ix + 10, iy)],
+                               fill='#708090', outline='#404040')
+                elif item_type == 'potion':
+                    # Draw a bottle shape
+                    draw.ellipse([ix - 6, iy - 10, ix + 6, iy + 10],
+                               fill='#ff0066', outline='#990033')
+                    draw.rectangle([ix - 3, iy - 12, ix + 3, iy - 10],
+                                 fill='#8b4513', outline='#654321')
+                elif item_type == 'treasure':
+                    # Draw a chest/gem shape
+                    draw.ellipse([ix - 8, iy - 8, ix + 8, iy + 8],
+                               fill='#ffd700', outline='#ffaa00')
+                else:
+                    # Generic item - simple box
+                    draw.rectangle([ix - 8, iy - 8, ix + 8, iy + 8],
+                                 fill='#90ee90', outline='#228b22')
+                
+                # Add a subtle glow/highlight
+                draw.ellipse([ix - 12, iy - 12, ix + 12, iy + 12],
+                           outline='#ffff00', width=1)
     
     # Draw player marker
-    player_x = width // 2
-    player_y = height // 2
+    player_x = (wx1 + wx2) // 2
+    player_y = (wy1 + wy2) // 2
     draw.ellipse([player_x - 12, player_y - 12, player_x + 12, player_y + 12],
                 fill='#ff3333', outline='#ffffff', width=3)
     
@@ -218,8 +343,7 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     buffer.seek(0)
     img_str = base64.b64encode(buffer.getvalue()).decode()
     
-    style = 'border:2px solid #444; border-radius:8px;'
-    return f'<img src="data:image/png;base64,{img_str}" style="{style}"/>'
+    return f'<img src="data:image/png;base64,{img_str}"/>'
 
 
 def _draw_prop(draw, prop, margin, width, height, color, theme):
@@ -267,7 +391,21 @@ def _draw_prop(draw, prop, margin, width, height, color, theme):
 
 
 def draw_stone_wall(draw, x1, y1, x2, y2, base_color, accent_color):
-    """Draw a textured stone wall"""
+    """Draw a textured stone wall with shadows"""
+    # Add drop shadow first (slightly offset)
+    shadow_offset = 3
+    shadow_color = '#000000'
+    if x2 - x1 > y2 - y1:  # Horizontal wall
+        # Shadow below wall
+        for i in range(shadow_offset):
+            alpha_factor = (shadow_offset - i) / shadow_offset
+            draw.line([x1, y2 + i, x2, y2 + i], fill=shadow_color, width=1)
+    else:  # Vertical wall
+        # Shadow to the right of wall
+        for i in range(shadow_offset):
+            alpha_factor = (shadow_offset - i) / shadow_offset
+            draw.line([x2 + i, y1, x2 + i, y2], fill=shadow_color, width=1)
+    
     # Main wall
     draw.rectangle([x1, y1, x2, y2], fill=base_color, outline=accent_color, width=2)
     
@@ -426,3 +564,4 @@ def add_room_furniture(draw, description, margin, width, height, color, theme):
             # Flame
             draw.polygon([(tx, ty - 25), (tx - 8, ty - 15), (tx + 8, ty - 15)],
                         fill='#ff8800', outline='#ff6600')
+

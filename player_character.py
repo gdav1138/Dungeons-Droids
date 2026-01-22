@@ -15,6 +15,7 @@ class player_character:
         self._int = None
         self._dex = None
         self._player_character_id = str(uuid.uuid4())
+        self._inventory = []  # List to store Item objects
 
     def get_player_character_id(self):
         return self._player_character_id
@@ -53,3 +54,26 @@ class player_character:
             current_exp = current_exp - 100
             self.set_exp(current_exp)
             self.level_up()
+    
+    def add_item(self, item):
+        """Add an item to the player's inventory"""
+        self._inventory.append(item)
+    
+    def remove_item(self, item_name):
+        """Remove an item from inventory by name"""
+        for item in self._inventory:
+            if item.get_name().lower() == item_name.lower():
+                self._inventory.remove(item)
+                return item
+        return None
+    
+    def get_inventory(self):
+        """Get the player's inventory"""
+        return self._inventory
+    
+    def has_item(self, item_name):
+        """Check if player has an item"""
+        for item in self._inventory:
+            if item.get_name().lower() == item_name.lower():
+                return True
+        return False
