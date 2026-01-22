@@ -48,15 +48,6 @@ def doGetPlayerName(userInput, userId):
         character_id = current_user["_player_character_id"]
         character_db.update_char(character_id, {"name": new_name})
 
-<<<<<<< Updated upstream
-    setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(userId)._era + " for a character named " + all_global_vars.get_player_character(userId).get_name() + ". Don't list any exits or items or anything other than a description of a location. Make it about 3 sentences."
-    client_response += call_ai(setup_string) + "\n"
-    cur_room._description = client_response
-    cur_room._visited = True
-
-    all_global_vars.set_section(userId, "MainGameLoop")
-    return rooms.get_full_description(userId)
-=======
     # Move to stat allocation - start with strength
     all_global_vars.set_section(userId, "GetPlayerStrength")
     return "Welcome, " + new_name + "!<BR><BR>You have 10 stat points to allocate between Strength and Intelligence.<BR>Enter your <strong>Strength</strong>:<BR>"
@@ -106,7 +97,7 @@ def doGetPlayerIntelligence(userInput, userId):
         if strength + intelligence != 10:
             # Reprompt both strength and intelligence
             all_global_vars.set_section(userId, "GetPlayerStrength")
-            return f"Error: Strength ({strength}) + Intelligence ({intelligence}) = {strength + intelligence} points.<BR>You must allocate exactly 10 points!<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong> :<BR>"
+            return f"Error: Strength ({strength}) + Intelligence ({intelligence}) = {strength + intelligence} points.<BR>You must allocate exactly 10 points!<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>"
         
         # Set intelligence on character temporarily
         character._int = intelligence
@@ -185,7 +176,6 @@ def doConfirmPlayerStats(userInput, userId):
     else:
         # Invalid input - ask again
         return "Please type <strong>yes</strong> to confirm your stats, or <strong>no</strong> to change them:<BR>"
->>>>>>> Stashed changes
 
 def getInput():
     return input()
