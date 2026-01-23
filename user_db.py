@@ -54,8 +54,6 @@ def register_user(username, password):
         
         # Placeholder fields for future implementation
         "_player_character_id": None,
-        "theme": None,
-        "rooms_visited": [],
     }
     
     result = collection.insert_one(user_doc)

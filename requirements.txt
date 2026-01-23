@@ -4,3 +4,4 @@ python-dotenv
 pymongo
 bcrypt
 google-genai
+pillow
