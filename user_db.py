@@ -22,8 +22,7 @@ def create_user(user_id):
         "created_at": datetime.now(),
 
         # Placeholder fields for future implementation
-        "_player_character_id": None,
-        "rooms_visited": [],
+        "_player_character_id": None
     }
     
     result = collection.insert_one(user_doc)
@@ -55,6 +54,7 @@ def register_user(username, password):
         
         # Placeholder fields for future implementation
         "_player_character_id": None,
+        "theme": None,
         "rooms_visited": [],
     }
     

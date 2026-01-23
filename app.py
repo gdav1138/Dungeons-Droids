@@ -1,6 +1,6 @@
 # Main flask application. Handles sessions, routing, and OpenAI communication
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, flash
-from hello import getOutput
+from hello import getOutput, initializeStartUp
 from user_db import register_user, authenticate_user, get_user_by_username
 import uuid
 
@@ -89,6 +89,7 @@ def home():
 
     # For first load:
     print("First load:")
+    initializeStartUp(userId=session["userId"])
     first_response = getOutput(userId=session["userId"], userInput="None")
     print("First response: " + first_response)
     username = session.get("username", "User")

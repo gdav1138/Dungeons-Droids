@@ -1,3 +1,4 @@
+import user_db
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
 from map_generator import generate_room_map
@@ -73,7 +74,7 @@ class room_holder:
             self.get_current_room().generate_description(userId)
 
         ret_string = ""
-        theme_era = all_global_vars.get_theme(userId)._era
+        theme_era = all_global_vars.get_theme(userId)
         # Cache the rendered map HTML per room to avoid re-rendering every time
         cur_room = self.get_current_room()
         if not getattr(cur_room, "_map_html", None):
@@ -84,7 +85,60 @@ class room_holder:
         ret_string += "<BR>"
         ret_string += self.get_exits()
         return ret_string
-    
+
+    def to_dict(self):
+        rooms = []
+        for y in range(self._rows):
+            for x in range(self._cols):
+                r = self._array_of_rooms[y][x]
+                if r is None:
+                    continue
+
+                rooms.append({
+                    "x": x,
+                    "y": y,
+                    "visited": bool(getattr(r, "_visited", False)),
+                    "description": getattr(r, "_description", None),
+                })
+
+        return {
+            "rows": self._rows,
+            "cols": self._cols,
+            "cur_pos_x": self._cur_pos_x,
+            "cur_pos_y": self._cur_pos_y,
+            "rooms": rooms,
+        }
+
+    @classmethod
+    def from_dict(cls, doc):
+        re_room_holder = cls()
+
+        re_room_holder._rows = int(doc.get("rows", 3))
+        re_room_holder._cols = int(doc.get("cols", 4))
+        re_room_holder._array_of_rooms = [[None for _ in range(re_room_holder._cols)]
+                                                for _ in range(re_room_holder._rows)]
+
+        re_room_holder._cur_pos_x = int(doc.get("cur_pos_x", 0))
+        re_room_holder._cur_pos_y = int(doc.get("cur_pos_y", 0))
+
+        for room_data in doc.get("rooms", []):
+            x = int(room_data["x"])
+            y = int(room_data["y"])
+            r = Room()
+            r._visited = bool(room_data.get("visited", False))
+            r._description = room_data.get("description", None)
+            re_room_holder._array_of_rooms[y][x] = r
+
+        return re_room_holder
+
+    def persist_room(self, userId, player_character):
+        user_doc = user_db.get_user_by_id(userId)
+        char_id = user_doc.get("_player_character_id")
+        if not char_id:
+            return
+
+        player_character.update_char(char_id, {"rooms_visited": self.to_dict()})
+
     def describe_npc(self, userId):
         return self.get_current_room()._npc._name + " looks like " + self.get_current_room()._npc._description
     

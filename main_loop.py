@@ -23,7 +23,9 @@ def do_main_loop(userInput, userId):
             userId
         )
     if userInput == 'north':
-        return all_global_vars.get_room_holder(userId).move_north(userId)
+        response = all_global_vars.get_room_holder(userId).move_north(userId)
+        all_global_vars.get_room_holder(userId).persist_room(userId, all_global_vars.get_player_character(userId))
+        return response
     if userInput == 'south':
         return all_global_vars.get_room_holder(userId).move_south(userId)
     if userInput == 'east':
