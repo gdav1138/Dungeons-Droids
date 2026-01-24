@@ -7,13 +7,13 @@ class npc:
         self._toughness = random.randint(1,100)
         self._friendlyness = random.randint(1,100)
         self._name = call_ai("Pick a name for A NPC with the theme " + 
-            all_global_vars.get_theme(userId)._era + 
+            all_global_vars.get_player_character(userId).get_theme() +
             " that has a toughness of " + str(self._toughness) + " out of 100, with 100/100 being very tough" + 
             " and has a friendliness score where 100 is very friendly and 0 is very hostile of " + 
             str(self._friendlyness) + " Just include the name by itself, don't put any other words in the response")
             
         self._description = call_ai("Describe the NPC with the name " + self._name + "and the theme " + 
-            all_global_vars.get_theme(userId)._era +
+            all_global_vars.get_player_character(userId).get_theme() +
             " that has a toughness of " + str(self._toughness) + " out of 100, with 100/100 being very tough" + 
             " and has a friendliness score where 100 is very friendly and 0 is very hostile of " + 
             str(self._friendlyness) + " Just write about a paragraph of plain text to describe the npc, like in a novel")

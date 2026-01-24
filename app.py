@@ -1,7 +1,8 @@
 # Main flask application. Handles sessions, routing, and OpenAI communication
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, flash
-from hello import getOutput
+from hello import getOutput, initializeStartUp
 from user_db import register_user, authenticate_user, get_user_by_username
+from all_global_vars import all_global_vars
 import uuid
 
 # This file loads up Flask to serve web pages at the root / directory.
@@ -87,11 +88,16 @@ def home():
         response_text = getOutput(userId=session["userId"], userInput=userInput)
         return jsonify({"response": response_text})
 
-    # For first load:
-    print("First load:")
-    first_response = getOutput(userId=session["userId"], userInput="None")
-    print("First response: " + first_response)
+    user_id = session.get("userId")
     username = session.get("username", "User")
+    if user_id:
+        if not all_global_vars.has_userId(user_id):
+            initializeStartUp(user_id)
+
+        first_response = getOutput(userId=session["userId"], userInput="None")
+    else:
+        first_response = "Please log in."
+
     return render_template("gameloop.html", first_response=first_response, username=username)
 
 

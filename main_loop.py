@@ -8,6 +8,11 @@ from all_global_vars import all_global_vars
 
 def do_main_loop(userInput, userId):
     userInput = userInput.lower()
+    # Handle empty/None input by showing current room
+    if userInput == "none" or userInput == "":
+        return all_global_vars.get_room_holder(userId).get_full_description(
+            userId
+        )
     if userInput == "restart":
         all_global_vars.set_section(userId, "Restart")
         return "Restarting Game. Type in anything to continue."
@@ -18,21 +23,30 @@ def do_main_loop(userInput, userId):
             + "north, south, east, west - Move to a new location<BR>"
             + "describe npc - describes the npc in the room<BR>"
         )
+
+    # Prepare current room_array for user action
+    room_array = all_global_vars.get_player_character(userId).get_room_array()
     if userInput == 'look':
-        return all_global_vars.get_room_holder(userId).get_full_description(
-            userId
-        )
+        return room_array.get_full_description(userId)
     if userInput == 'north':
-        return all_global_vars.get_room_holder(userId).move_north(userId)
+        response = room_array.move_north(userId)
+        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return response
     if userInput == 'south':
-        return all_global_vars.get_room_holder(userId).move_south(userId)
+        response = room_array.move_south(userId)
+        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return response
     if userInput == 'east':
-        return all_global_vars.get_room_holder(userId).move_east(userId)
+        response = room_array.move_east(userId)
+        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return response
     if userInput == 'west':
-        return all_global_vars.get_room_holder(userId).move_west(userId)
+        response = room_array.move_west(userId)
+        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return response
     if userInput == "describe npc":
-        return all_global_vars.get_room_holder(userId).describe_npc(userId)
+        return room_array.describe_npc(userId)
     if userInput.startswith("say"):
-        return all_global_vars.get_room_holder(userId).talk_to_npc(userId, userInput[3:])
+        return room_array.talk_to_npc(userId, userInput[3:])
     
     return "Invalid input. Type help for options."

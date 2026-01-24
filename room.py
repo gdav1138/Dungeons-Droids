@@ -1,3 +1,4 @@
+import user_db
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
 from map_generator import generate_room_map
@@ -13,9 +14,11 @@ class Room:
     def generate_description(self, userId):
         self._npc = npc(userId)
         client_response = ""
-        setup_string = "Make up a location or MUD room description fitting the theme " + all_global_vars.get_theme(
-            userId)._era + " for a character named " + all_global_vars.get_player_character(
-            userId).get_name() + ". Don't list any exits or items or anything other than a description of a location."
+        setup_string = ("Make up a location or MUD room description fitting the theme "
+                        + all_global_vars.get_player_character(userId).get_theme()
+                        + " for a character named "
+                        + all_global_vars.get_player_character(userId).get_name()
+                        + ". Don't list any exits or items or anything other than a description of a location.")
         if self._npc is not None:
             setup_string += "Include a mention of an NPC named " + self._npc._name + " and subtlely include the description " + self._npc._description
         client_response += call_ai(setup_string) + "\n"
@@ -49,13 +52,13 @@ class room_holder:
         ret_string = "Exits: "
         print(f"cur_x: {cur_x}, cur_y: {cur_y}")
         print("Exits: ")
-        if self._cols > cur_y + 1:
+        if self._rows > cur_y + 1:
             if arr[cur_y + 1][cur_x] != None:
                 ret_string += "North "
         if cur_y > 0:
             if arr[cur_y - 1][cur_x] != None:
                 ret_string += "South "
-        if self._rows > cur_x + 1:
+        if self._cols > cur_x + 1:
             if arr[cur_y][cur_x + 1] != None:
                 ret_string += "East "
         if cur_x > 0:
@@ -73,7 +76,7 @@ class room_holder:
             self.get_current_room().generate_description(userId)
 
         ret_string = ""
-        theme_era = all_global_vars.get_theme(userId)._era
+        theme_era = all_global_vars.get_player_character(userId).get_theme()
         # Cache the rendered map HTML per room to avoid re-rendering every time
         cur_room = self.get_current_room()
         if not getattr(cur_room, "_map_html", None):
@@ -84,7 +87,69 @@ class room_holder:
         ret_string += "<BR>"
         ret_string += self.get_exits()
         return ret_string
-    
+
+    def to_dict(self):
+        """
+        Convert room object to a dictionary for storage into a DB
+        """
+        rooms = []
+        for y in range(self._rows):
+            for x in range(self._cols):
+                r = self._array_of_rooms[y][x]
+                if r is None:
+                    continue
+
+                rooms.append({
+                    "x": x,
+                    "y": y,
+                    "visited": bool(getattr(r, "_visited", False)),
+                    "description": getattr(r, "_description", None),
+                })
+
+        return {
+            "rows": self._rows,
+            "cols": self._cols,
+            "cur_pos_x": self._cur_pos_x,
+            "cur_pos_y": self._cur_pos_y,
+            "rooms": rooms,
+        }
+
+    @classmethod
+    def from_dict(cls, doc):
+        """
+        Rehydrate room object from dictionary data
+        """
+        re_room_holder = cls()
+
+        re_room_holder._rows = int(doc.get("rows", 3))
+        re_room_holder._cols = int(doc.get("cols", 4))
+        re_room_holder._array_of_rooms = [[None for _ in range(re_room_holder._cols)]
+                                                for _ in range(re_room_holder._rows)]
+
+        re_room_holder._cur_pos_x = int(doc.get("cur_pos_x", 0))
+        re_room_holder._cur_pos_y = int(doc.get("cur_pos_y", 0))
+
+        for room_data in doc.get("rooms", []):
+            x = int(room_data["x"])
+            y = int(room_data["y"])
+            r = Room()
+            r._visited = bool(room_data.get("visited", False))
+            r._description = room_data.get("description", None)
+            re_room_holder._array_of_rooms[y][x] = r
+
+        return re_room_holder
+
+    def persist_room(self, userId, player_character):
+        """
+        Update current room array into the DB
+        """
+        user_doc = user_db.get_user_by_id(userId)
+        char_id = user_doc.get("_player_character_id")
+        if not char_id:
+            return
+
+        player_character.update_char(char_id, {"rooms_visited": self.to_dict()})
+
     def describe_npc(self, userId):
         return self.get_current_room()._npc._name + " looks like " + self.get_current_room()._npc._description
     
@@ -96,7 +161,7 @@ class room_holder:
         cur_y = self._cur_pos_y
         arr = self._array_of_rooms
 
-        if self._cols > cur_y + 1:
+        if self._rows > cur_y + 1:
             if arr[cur_y + 1][cur_x] != None:
                 self._cur_pos_y += 1
                 return self.get_full_description(userId)
