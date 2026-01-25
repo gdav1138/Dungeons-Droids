@@ -117,6 +117,7 @@ def home():
         username=username,
         first_inventory=[]
     )
+
     user_id = session.get("userId")
     username = session.get("username", "User")
     if user_id:
