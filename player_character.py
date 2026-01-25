@@ -26,6 +26,7 @@ class player_character:
         self._section = "Starting"
         self._theme = None
         self._rooms = room_holder()
+        self._inventory = []  # list of item dicts {name, rarity, value, desc}
 
     def get_player_character_id(self):
         return self._player_character_id
@@ -44,6 +45,9 @@ class player_character:
 
     def get_room_array(self):
         return self._rooms
+
+    def get_inventory(self):
+        return list(self._inventory)
 
     def get_section(self):
         return self._section
@@ -65,6 +69,21 @@ class player_character:
 
     def set_theme(self, theme):
         self._theme = theme
+
+    def add_item(self, item_obj):
+        if not item_obj:
+            return
+        self._inventory.append(item_obj)
+
+    def remove_item(self, item_name):
+        if not item_name:
+            return None
+        for idx, val in enumerate(self._inventory):
+            if isinstance(val, dict) and val.get("name", "").lower() == item_name.lower():
+                return self._inventory.pop(idx)
+            if isinstance(val, str) and val.lower() == item_name.lower():
+                return self._inventory.pop(idx)
+        return None
 
     def level_up(self):
         self._level += 1
@@ -105,7 +124,8 @@ class player_character:
             "created_at": datetime.now(),
             "section": self._section,
             "theme": self._theme,
-            "rooms_visited": self._rooms.to_dict()
+            "rooms_visited": self._rooms.to_dict(),
+            "inventory": list(self._inventory),
         }
 
         result = collection.insert_one(char_doc)
@@ -133,7 +153,8 @@ class player_character:
             "created_at": datetime.now(),
             "section": self._section,
             "theme": self._theme,
-            "rooms_visited": self._rooms.to_dict()
+            "rooms_visited": self._rooms.to_dict(),
+            "inventory": list(self._inventory),
         }
 
         result = collection.update_one({"_id": charId}, {"$set": update_doc})
@@ -170,6 +191,7 @@ class player_character:
         returning_character._dex = character_doc.get("dex")
         returning_character._section = character_doc.get("section")
         returning_character._theme = character_doc.get("theme")
+        returning_character._inventory = character_doc.get("inventory", []) or []
 
         rooms_doc = character_doc.get("rooms_visited")
         returning_character._rooms = returning_character._rooms.from_dict(rooms_doc) if rooms_doc else room_holder()

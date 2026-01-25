@@ -1,3 +1,4 @@
+import random
 import user_db
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
@@ -10,6 +11,7 @@ class Room:
         self._visited = False
         self._map_html = None
         self._npc = None
+        self._items = []
 
     def generate_description(self, userId):
         self._npc = npc(userId)
@@ -25,6 +27,73 @@ class Room:
         self._description = client_response
         self._visited = True
 
+        # Seed deterministic room loot based on position/description
+        seed_key = getattr(self, "_seed", None)
+        if seed_key is None:
+            seed_key = random.randint(1, 999999)
+            self._seed = seed_key
+        random.seed(seed_key)
+
+        base_items = [
+            ("rusty dagger", "A pitted blade with a worn leather grip."),
+            ("leather satchel", "A weathered satchel with a broken clasp."),
+            ("bronze coin", "Ancient coin, its face worn smooth."),
+            ("torch", "Wrapped in pitch-soaked cloth."),
+            ("old map", "Faded parchment with partial routes."),
+            ("copper key", "Small key etched with runes."),
+            ("medkit", "Sterile wraps and coagulant foam."),
+            ("data shard", "Encrypted storage crystal."),
+            ("plasma cell", "Hums faintly with charge."),
+            ("gear fragment", "Jagged cog from a larger machine."),
+            ("rations", "Dry but filling travel food."),
+            ("rope", "Coiled hemp rope, 30ft."),
+            ("gemstone", "Uncut gem catching stray light."),
+            ("ancient scroll", "Sealed with brittle wax."),
+            ("oil flask", "Stoppered flask of lamp oil."),
+            ("metal scrap", "Useful for patchwork repairs."),
+            ("sealed vial", "Opaque fluid, cool to touch."),
+        ]
+
+        rarity_table = [
+            ("Common", 1.0),
+            ("Uncommon", 0.4),
+            ("Rare", 0.18),
+            ("Epic", 0.08),
+            ("Legendary", 0.02),
+        ]
+
+        def pick_rarity():
+            r = random.random()
+            acc = 0.0
+            for name, prob in rarity_table:
+                acc += prob
+                if r <= acc:
+                    return name
+            return "Common"
+
+        def item_value(rarity):
+            base = {
+                "Common": (1, 8),
+                "Uncommon": (10, 30),
+                "Rare": (40, 120),
+                "Epic": (150, 400),
+                "Legendary": (500, 1200),
+            }.get(rarity, (1, 8))
+            return random.randint(*base)
+
+        item_count = random.randint(2, 4)
+        chosen = random.sample(base_items, item_count)
+        items = []
+        for name, desc in chosen:
+            rarity = pick_rarity()
+            items.append({
+                "name": name,
+                "rarity": rarity,
+                "value": item_value(rarity),
+                "desc": desc,
+            })
+        self._items = items
+
 
 class room_holder:
     def __init__(self):
@@ -36,7 +105,9 @@ class room_holder:
 
     def add_empty_room(self, x_row, y_col):
         print(f"Added empty room at x_row: {x_row}, y_col: {y_col}")
-        self._array_of_rooms[y_col][x_row] = Room()
+        room = Room()
+        room._seed = hash(f"{x_row}_{y_col}")
+        self._array_of_rooms[y_col][x_row] = room
 
     def get_room(self, x_row, y_col):
         return self._array_of_rooms[y_col][x_row]
@@ -83,9 +154,27 @@ class room_holder:
             cur_room._map_html = generate_room_map(self, theme_era)
         ret_string += cur_room._map_html
         ret_string += "<BR>"
+
+        # Add world minimap (visited/unvisited/current)
+        try:
+            mini_html = self.render_minimap()
+            ret_string += f'<div data-role="worldmap">{mini_html}</div>'
+            ret_string += "<BR>"
+        except Exception:
+            pass
+
         ret_string += self.get_current_room()._description
         ret_string += "<BR>"
         ret_string += self.get_exits()
+        items_here = getattr(self.get_current_room(), "_items", []) or []
+        if items_here:
+            def fmt(it):
+                if isinstance(it, dict):
+                    return it.get('name', '')
+                return str(it)
+            ret_string += "<BR>Items here: " + ", ".join([fmt(x) for x in items_here])
+        else:
+            ret_string += "<BR>Items here: none"
         return ret_string
 
     def to_dict(self):
@@ -104,6 +193,8 @@ class room_holder:
                     "y": y,
                     "visited": bool(getattr(r, "_visited", False)),
                     "description": getattr(r, "_description", None),
+                    "items": list(getattr(r, "_items", []) or []),
+                    "seed": getattr(r, "_seed", None),
                 })
 
         return {
@@ -135,6 +226,8 @@ class room_holder:
             r = Room()
             r._visited = bool(room_data.get("visited", False))
             r._description = room_data.get("description", None)
+            r._items = room_data.get("items", []) or []
+            r._seed = room_data.get("seed")
             re_room_holder._array_of_rooms[y][x] = r
 
         return re_room_holder
@@ -150,12 +243,48 @@ class room_holder:
 
         player_character.update_char(char_id, {"rooms_visited": self.to_dict()})
 
+    def list_items(self):
+        cur = self.get_current_room()
+        if cur is None:
+            return []
+        return list(getattr(cur, "_items", []) or [])
+
+    def pickup_item(self, item_name, player_character):
+        cur = self.get_current_room()
+        if cur is None:
+            return False, "No room found."
+        if not getattr(cur, "_items", None):
+            return False, "There are no items to pick up here."
+        for idx, val in enumerate(cur._items):
+            name = val.get("name") if isinstance(val, dict) else str(val)
+            if name.lower() == item_name.lower():
+                item = cur._items.pop(idx)
+                player_character.add_item(item)
+                cur._map_html = None  # force redraw without the item
+                return True, name
+        return False, "That item is not here."
+
+    def drop_item(self, item_name, player_character):
+        cur = self.get_current_room()
+        if cur is None:
+            return False, "No room found."
+        removed = player_character.remove_item(item_name)
+        if removed is None:
+            return False, "You don't have that item."
+        cur_items = getattr(cur, "_items", None)
+        if cur_items is None:
+            cur._items = []
+        cur._items.append(removed)
+        cur._map_html = None  # force redraw with the dropped item
+        name = removed.get("name") if isinstance(removed, dict) else str(removed)
+        return True, name
+
     def describe_npc(self, userId):
         return self.get_current_room()._npc._name + " looks like " + self.get_current_room()._npc._description
-    
+
     def talk_to_npc(self, userId, talk_string):
         return self.get_current_room()._npc.talk(userId, talk_string)
-    
+
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
