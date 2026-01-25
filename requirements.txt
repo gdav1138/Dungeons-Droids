@@ -1,0 +1,7 @@
+flask
+openai
+python-dotenv
+pymongo
+bcrypt
+google-genai
+pillow

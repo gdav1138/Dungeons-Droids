@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dungeons & Droids</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .username { color: #6f6; }
+    .logout-btn { padding: 6px 12px; background: #444; color: #eee; border: 1px solid #666; cursor: pointer; text-decoration: none; }
+    .logout-btn:hover { background: #555; }
+    .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
+    .panel { border: 1px solid #444; padding: 10px; border-radius: 6px; background: #0d0d0d; display: flex; flex-direction: column; }
+    .log-panel { height: 60vh; }
+    .right-column { display: flex; flex-direction: column; gap: 16px; height: 60vh; }
+    #log { flex: 1; overflow-y: auto; }
+    #map { flex: 1; overflow: auto; }
+    #generated { flex: 1; overflow: auto; }
+    #map img, #generated img { max-width: 100%; height: auto; display: block; }
+    .inventory-panel { margin-top: 12px; }
+    #inventory { min-height: 48px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .inv-card { border: 1px solid #444; padding: 6px 8px; border-radius: 6px; background: #161616; min-width: 160px; max-width: 220px; }
+    .inv-name { color: #eee; font-weight: bold; }
+    .inv-meta { color: #8ad; font-size: 12px; }
+    .inv-desc { color: #bbb; font-size: 12px; margin-top: 4px; }
+    h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
+    form { margin-top: 12px; }
+    input[type=text] { width: 80%; padding: 8px; }
+    button { padding: 8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="username">Logged in as: {{ username }}</div>
+    <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+
+  <div class="layout">
+    <div class="panel log-panel">
+      <h3>ADVENTURE LOG</h3>
+      <div id="log"></div>
+    </div>
+    <div class="right-column">
+      <div class="panel">
+        <h3>MAP</h3>
+        <div id="map"></div>
+      </div>
+      <div class="panel">
+        <h3>GENERATED</h3>
+        <div id="generated"></div>
+      </div>
+    </div>
+  </div>
+
+  <form id="commandForm" onsubmit="return false;">
+    <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
+    <button type="submit">Send</button>
+  </form>
+
+  <div class="panel inventory-panel">
+    <h3>INVENTORY</h3>
+    <div id="inventory"></div>
+  </div>
+
+  <script>
+    const logDiv = document.getElementById('log');
+    const mapDiv = document.getElementById('map');
+    const generatedDiv = document.getElementById('generated');
+    const form = document.getElementById('commandForm');
+    const inventoryDiv = document.getElementById('inventory');
+
+    const renderInventory = (items) => {
+      const list = Array.isArray(items) ? items : [];
+      if (!list.length) {
+        inventoryDiv.innerHTML = '<em>Empty</em>';
+        return;
+      }
+      const html = [];
+      list.forEach(it => {
+        if (typeof it === 'string') {
+          html.push(`<div class="inv-card"><div class="inv-name">${it}</div></div>`);
+          return;
+        }
+        const name = it.name || 'Item';
+        const rarity = it.rarity || 'Common';
+        const value = it.value != null ? `${it.value} gp` : '';
+        const desc = it.desc || '';
+        html.push(
+          `<div class="inv-card">`
+          + `<div class="inv-name">${name}</div>`
+          + `<div class="inv-meta">${rarity}${value ? ' • ' + value : ''}</div>`
+          + `<div class="inv-desc">${desc}</div>`
+          + `</div>`
+        );
+      });
+      inventoryDiv.innerHTML = html.join('');
+    };
+
+    const renderResponse = (html) => {
+      const temp = document.createElement('div');
+      temp.innerHTML = html || '';
+
+      // Detailed room render (large map)
+      const img = temp.querySelector('img');
+      if (img) {
+        img.remove();
+        generatedDiv.innerHTML = '';
+        generatedDiv.appendChild(img);
+      }
+
+      // World minimap (visited/current)
+      const world = temp.querySelector('[data-role="worldmap"]');
+      if (world) {
+        world.remove();
+        mapDiv.innerHTML = '';
+        mapDiv.appendChild(world);
+      }
+
+      // Remaining text to log
+      if (temp.innerHTML.trim()) {
+        logDiv.innerHTML += `<div>${temp.innerHTML}</div>`;
+      }
+      logDiv.scrollTop = logDiv.scrollHeight;
+    };
+
+    // Append the initial response from Flask
+    const firstResponse = {{ first_response | tojson }};
+    const firstInventory = {{ first_inventory | tojson }};
+    {% if first_map is defined %}
+    const firstMap = {{ first_map | tojson }};
+    if (firstMap && firstMap !== "None") {
+      mapDiv.innerHTML = firstMap;
+    }
+    {% endif %}
+    if (firstResponse && firstResponse !== "None") {
+      renderResponse(firstResponse);
+    }
+    renderInventory(firstInventory);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const command = document.getElementById('command').value.trim();
+      if (!command) return;
+
+      document.getElementById('command').value = '';
+      logDiv.innerHTML += `<div style="color:#6f6;">> ${command}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+
+      try {
+        const response = await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command })
+        });
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseErr) {
+          const text = await response.text();
+          throw new Error(`Server response was not JSON. Status ${response.status}. Body: ${text.slice(0, 200)}`);
+        }
+
+        renderResponse(data.response);
+        if (data.map) { mapDiv.innerHTML = data.map; }
+        if (data.inventory) { renderInventory(data.inventory); }
+      } catch (err) {
+        logDiv.innerHTML += `<div style="color:red;">Error: ${err}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>
