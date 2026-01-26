@@ -18,6 +18,7 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     room_array = room_holder._array_of_rooms
     current_room = room_array[cur_y][cur_x]
     description = current_room._description.lower() if current_room._description else ""
+    room_items = getattr(current_room, "_items", []) or []
     
     # Set theme colors (defaults; AI layout may override floor colors)
     theme_lower = theme_era.lower()
@@ -211,6 +212,34 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     player_y = height // 2
     draw.ellipse([player_x - 12, player_y - 12, player_x + 12, player_y + 12],
                 fill='#ff3333', outline='#ffffff', width=3)
+
+    # Draw item markers (rarity-colored dots) scattered in the room
+    rarity_colors = {
+        "Legendary": "#f5a524",
+        "Epic": "#c678dd",
+        "Rare": "#61afef",
+        "Uncommon": "#7eca9c",
+        "Common": "#d0d0d0",
+    }
+
+    def pick_pos():
+        for _ in range(12):
+            x = random.randint(margin + 20, width - margin - 20)
+            y = random.randint(margin + 20, height - margin - 20)
+            # avoid overlapping the player marker area
+            if (abs(x - player_x) + abs(y - player_y)) > 80:
+                return x, y
+        return width // 3, height // 3
+
+    for item in room_items:
+        name = item.get("name") if isinstance(item, dict) else str(item)
+        rarity = (item.get("rarity") if isinstance(item, dict) else "Common") or "Common"
+        color = rarity_colors.get(rarity, "#d0d0d0")
+        ix, iy = pick_pos()
+        r = 8
+        draw.ellipse([ix - r, iy - r, ix + r, iy + r], fill=color, outline="#000000", width=2)
+        # tiny label dot shadow
+        draw.ellipse([ix - 2, iy - 2, ix + 2, iy + 2], fill="#000000")
     
     # Convert to base64
     buffer = io.BytesIO()
