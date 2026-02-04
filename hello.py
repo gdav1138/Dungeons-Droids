@@ -214,6 +214,14 @@ def doConfirmPlayerStats(userInput, userId):
 def getInput():
     return input()
 
+def restart_game(userId):
+    user_doc = user_db.get_user_by_id(userId)
+    old_char_id = user_doc.get("_player_character_id")
+    player_character.delete_character(old_char_id)
+    user_db.update_user(userId, {"_player_character_id": None})
+    all_global_vars._userIdList.pop(userId, None)
+    initializeStartUp(userId)
+    return doSectionStarting(userId)
 
 def getOutput(userInput, userId):
 
