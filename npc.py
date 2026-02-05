@@ -32,3 +32,18 @@ class npc:
         self._past_conversation.append(response)
         return self._name + " says " + response
 
+    def allow_pass(self, userId):
+        print("In allow pass")
+        call_string = "Based on the conversation: " 
+        for line in self._past_conversation:
+            call_string += line + " " 
+        call_string += f"And the player wants to go past the npc with friendlynes {self._friendlyness} out of 100"
+        call_string +=" Do you allow the player to pass? Don't let them pass unless they've had a good conversation with you, or if you've said they could pass it's okay. Don't be too difficult to get past, be simple. Answer with one word, yes or no"
+        print("Calling AI")
+        response = call_ai(call_string)
+        print("Got response: " + str(response))
+        if  response.strip().lower().startswith("no"): 
+            self._past_conversation.append("Note: The player tried to go past the npc to exit the room here and was blocked")
+            return False
+        self._past_conversation.append("Note: The player tried to go past the npc to exit the room here and was allowed")
+        return True

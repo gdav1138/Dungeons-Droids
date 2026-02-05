@@ -285,6 +285,12 @@ class room_holder:
     def talk_to_npc(self, userId, talk_string):
         return self.get_current_room()._npc.talk(userId, talk_string)
 
+    def check_pass_npc(self, userId):
+        room = self.get_current_room()
+        if not room or room._npc is None:
+            return "There is no NPC here."
+        return self.get_current_room()._npc.allow_pass(userId)
+
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
