@@ -118,9 +118,19 @@ def do_main_loop(userInput, userId):
     if userInput == 'look':
         return room_array.get_full_description(userId)
     if userInput == 'north':
-        response = room_array.move_north(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        print("current room_array:", room_array)
+        print("current room npc:", room_array.get_current_room()._npc)
+        if room_array.get_current_room()._npc is None:
+            okay_to_move = True
+            npc_response = "There is no NPC in this room."
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_north(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return npc_response + "<BR>" + response
+        else:
+            return npc_response
     if userInput == 'south':
         response = room_array.move_south(userId)
         room_array.persist_room(userId, all_global_vars.get_player_character(userId))
@@ -137,5 +147,21 @@ def do_main_loop(userInput, userId):
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
         return room_array.talk_to_npc(userId, userInput[3:])
-
+    
     return "Invalid input. Type help for options."
+
+def check_direction_for_npc(userId, room_array):
+    print("1")
+    print("room_array: ", room_array)
+    print("2")
+    try:
+        can_pass = room_array.check_pass_npc(userId)
+    except Exception as e:
+        print("ERROR in check_pass_npc:", repr(e))
+        raise
+    #can_pass = room_array.check_pass_npc(userId)
+    print("Can pass: " + str(can_pass))
+    if can_pass:
+        return True, "The NPC lets you exit the room"
+    else:
+        return False, "The NPC blocks your exit"
