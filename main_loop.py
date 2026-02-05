@@ -4,7 +4,7 @@
 # examples.
 
 from all_global_vars import all_global_vars
-
+import hello
 
 def _format_inventory(inv_list):
     if not inv_list:
@@ -54,8 +54,8 @@ def do_main_loop(userInput, userId):
             userId
         )
     if userInput == "restart":
-        all_global_vars.set_section(userId, "Restart")
-        return "Restarting Game. Type in anything to continue."
+        print("userInput == restart")
+        return hello.restart_game(userId)
     if userInput == 'help':
         return (
             "Valid Commands:<BR>Restart - Restarts the game<BR>"

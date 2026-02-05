@@ -209,7 +209,8 @@ class player_character:
         print(f"Character {charId} update result: {result.modified_count} modified")
         return result
 
-    def delete_user(self, charId):
+    @classmethod
+    def delete_character(self, charId):
         """
         Deletes a user from the database.
         """
