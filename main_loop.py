@@ -118,8 +118,6 @@ def do_main_loop(userInput, userId):
     if userInput == 'look':
         return room_array.get_full_description(userId)
     if userInput == 'north':
-        print("current room_array:", room_array)
-        print("current room npc:", room_array.get_current_room()._npc)
         if room_array.get_current_room()._npc is None:
             okay_to_move = True
             npc_response = "There is no NPC in this room."
@@ -132,17 +130,41 @@ def do_main_loop(userInput, userId):
         else:
             return npc_response
     if userInput == 'south':
-        response = room_array.move_south(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room()._npc is None:
+            okay_to_move = True
+            npc_response = "There is no NPC in this room."
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_south(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return npc_response + "<BR>" + response
+        else:
+            return npc_response
     if userInput == 'east':
-        response = room_array.move_east(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room()._npc is None:
+            okay_to_move = True
+            npc_response = "There is no NPC in this room."
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_east(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return npc_response + "<BR>" + response
+        else:
+            return npc_response
     if userInput == 'west':
-        response = room_array.move_west(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room()._npc is None:
+            okay_to_move = True
+            npc_response = "There is no NPC in this room."
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_west(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return npc_response + "<BR>" + response
+        else:
+            return npc_response
     if userInput == "describe npc":
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
