@@ -3,6 +3,7 @@
 # Each players variables have to be saved between commands so the web server can
 # remember them across commands and sessions.
 
+from game_version import get_version
 
 class all_global_vars_class:
     """Global container for all user sessions"""
@@ -16,6 +17,7 @@ class all_global_vars_class:
         self._userIdList[userId]["player_character"] = None
         self._userIdList[userId]["theme"] = None
         self._userIdList[userId]["section"] = "Starting"
+        self._userIdList[userId]["version_banner"] = get_version()
         
         # #has to be here to avoid circular imports
         # from room import room_holder
@@ -36,6 +38,9 @@ class all_global_vars_class:
 
     def get_section(self, userId):
         return self._userIdList[userId]["section"]
+
+    def get_version(self, userId):
+        return self._userIdList[userId]["version_banner"]
 
     def set_player_character(self, userId, player_character):
         self._userIdList[userId]["player_character"] = player_character
