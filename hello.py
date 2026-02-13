@@ -10,12 +10,12 @@ from open_ai_api import call_ai
 from main_loop import do_main_loop
 from bson.objectid import ObjectId
 import user_db
-from player_character import player_character
+from humanoid import PlayerCharacter, Npc
 import os
 from room import room_holder, Room
 
 
-def initializeStartUp(userId):
+def InitializeStartUp(userId):
     user_doc = user_db.get_user_by_id(userId)
 
     if user_doc["_player_character_id"] is None:
@@ -23,7 +23,7 @@ def initializeStartUp(userId):
 
         # Generate Character
         all_global_vars.create_player(userId)
-        character = player_character()
+        character = PlayerCharacter()
         all_global_vars.set_player_character(userId, character)
 
         character_id = character.store_player_character()  # Store character and get character_id
@@ -41,7 +41,8 @@ def initializeStartUp(userId):
         character_id = user_doc.get("_player_character_id")
 
         # Reinitialize player_character object for function use
-        returning_character = player_character.rehydrate_char(character_id)
+        returning_character = PlayerCharacter.rehydrate_char(character_id)
+        returning_character.get_room_array().set_npc_factory(lambda uid: Npc(uid))
 
         # Reinitialize global container and load it with the rehydrated character
         all_global_vars.create_player(userId)
@@ -174,26 +175,40 @@ def doGetPlayerIntelligence(userInput, userId):
 
 
 def doConfirmPlayerStats(userInput, userId):
-    """Handles confirmation of stat allocation. Completes character creation or reprompts stats."""
+    """Handles confirmation of stat allocation. Completes character creation or re-prompts stats."""
     confirmation = userInput.strip().lower()
 
     if confirmation in ['yes', 'y']:
         # User confirmed
         # Generate rooms and start main game loop
         rooms = all_global_vars.get_player_character(userId).get_room_array()
+        rooms.set_npc_factory(lambda uid: Npc(uid))
 
         # Generate a maze of rooms with a clear path
         # Create a simple branching dungeon structure
-        rooms.add_empty_room(0, 0)  # Starting room
-        rooms.add_empty_room(0, 1)  # North
-        rooms.add_empty_room(1, 1)  # East from north
-        rooms.add_empty_room(0, 2)  # North again
-        rooms.add_empty_room(1, 0)  # East from start
-        rooms.add_empty_room(2, 0)  # East again
-        rooms.add_empty_room(2, 1)  # North from east path
+        room_id = rooms.add_empty_room(0, 0)  # Starting room
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 0)
 
-        cur_room = rooms.get_room(0, 0)
-        cur_room.generate_description(userId)
+        room_id = rooms.add_empty_room(0, 1)  # North
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 1)
+
+        room_id = rooms.add_empty_room(1, 1)  # East from north
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 1)
+
+        room_id = rooms.add_empty_room(0, 2)  # North again
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 2)
+
+        room_id = rooms.add_empty_room(1, 0)  # East from start
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 0)
+
+        room_id = rooms.add_empty_room(2, 0)  # East again
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 0)
+
+        room_id = rooms.add_empty_room(2, 1)  # North from east path
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 1)
+
+        cur_room = rooms.get_room(userId, 0, 0)
+        cur_room.generate_description(userId, npc=Npc(userId))
 
         # Update player state for session
         all_global_vars.get_player_character(userId).set_section(section="MainGameLoop")
@@ -227,17 +242,18 @@ def doConfirmPlayerStats(userInput, userId):
 def getInput():
     return input()
 
+
 def restart_game(userId):
     user_doc = user_db.get_user_by_id(userId)
     old_char_id = user_doc.get("_player_character_id")
-    player_character.delete_character(old_char_id)
+    PlayerCharacter.delete_character(old_char_id)
     user_db.update_user(userId, {"_player_character_id": None})
     all_global_vars._userIdList.pop(userId, None)
-    initializeStartUp(userId)
+    InitializeStartUp(userId)
     return doSectionStarting(userId)
 
-def getOutput(userInput, userId):
 
+def getOutput(userInput, userId):
     while True:
         cur_section = all_global_vars.get_player_character(userId).get_section()
         if cur_section == "Starting":
@@ -259,14 +275,14 @@ def getOutput(userInput, userId):
             return do_main_loop(userInput, userId)
         if cur_section == "Restart":
             all_global_vars._userIdList.pop(userId)
-        
+
 
 def main():
     userInput = ""
     while True:
-        print(getOutput(userInput, userId = 1))
+        print(getOutput(userInput, userId=1))
         userInput = getInput()
+
 
 if __name__ == "__main__":
     main()
-    

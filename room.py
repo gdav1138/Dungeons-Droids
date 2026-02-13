@@ -1,20 +1,74 @@
 import random
 import user_db
+import os
+from bson import ObjectId
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
 from map_generator import generate_room_map
-from npc import npc
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()
+client = MongoClient(os.getenv('URI'))
+db = client["dungeons_droids"]
+room_collection = db["rooms"]
 
 class Room:
-    def __init__(self):
+    def __init__(self, x_cord, y_cord, npc_factory=None):
         self._description = "Not Generated Yet"
         self._visited = False
         self._map_html = None
+        self._npc_factory = npc_factory
         self._npc = None
+        self._room_pos_x = x_cord
+        self._room_pos_y = y_cord
         self._items = []
 
-    def generate_description(self, userId):
-        self._npc = npc(userId)
+    def get_npc(self):
+        if self._npc is not None:
+            return self._npc
+
+        npc_id = getattr(self, "_npc_id", None)
+        if npc_id is None:
+            return None
+
+        from humanoid import Npc
+
+        self._npc = Npc.rehydrate_npc(npc_id)
+        return self._npc
+
+    def get_id(self):
+        return self._id
+
+    def set_id(self, room_id):
+        self._id = room_id
+
+    def set_room_pos(self, pos_x, pos_y):
+        self._room_pos_x = pos_x
+        self._room_pos_y = pos_y
+
+    def generate_description(self, userId, npc=None):
+        print("GEN_DESC room id:", getattr(self, "_id", None),
+              "pos:", self._room_pos_x, self._room_pos_y,
+              "factory:", self._npc_factory)
+
+        # Generate NPC for room
+        if npc is None:
+            if self._npc_factory is None:
+                raise RuntimeError("No npc_factory provided and npc is None")
+            npc = self._npc_factory(userId)
+
+        self._npc = npc
+
+        # Set room coordinates for NPC
+        self._npc.set_room(self._room_pos_x, self._room_pos_y)
+
+        # Store NPC
+        npc_id = self._npc.store_npc()
+        self._npc_id = npc_id
+        self.update_room(self._id, {"_npc_id": npc_id})  # Update room with npc_id
+
+        # Generate Room Description
         client_response = ""
         setup_string = ("Make up a location or MUD room description fitting the theme "
                         + all_global_vars.get_player_character(userId).get_theme()
@@ -22,7 +76,8 @@ class Room:
                         + all_global_vars.get_player_character(userId).get_name()
                         + ". Don't list any exits or items or anything other than a description of a location.")
         if self._npc is not None:
-            setup_string += "Include a mention of an NPC named " + self._npc._name + " and subtlely include the description " + self._npc._description
+            setup_string += ("Include a mention of an NPC named " + self._npc.get_name() +
+                             " and subtlely include the description " + self._npc.get_description())
         client_response += call_ai(setup_string) + "\n"
         self._description = client_response
         self._visited = True
@@ -94,6 +149,44 @@ class Room:
             })
         self._items = items
 
+        # Update room with new description and items generated.
+        self.update_room(self._id, {
+            "description": self._description,
+            "visited": True,
+            "items": self._items,
+            "seed": self._seed
+        })
+
+    def store_room(self):
+        """
+        Stores a room object in the MongoDB and returns the player_character_id.
+        """
+        # Convert room object to dictionary
+        room_doc = {
+            "description": self._description,
+            "visited": self._visited,
+            "map": self._map_html,
+            "x": self._room_pos_x,
+            "y": self._room_pos_y,
+            "items": self._items
+        }
+
+        result = room_collection.insert_one(room_doc)
+        print(f"Room stored with character_id: {result.inserted_id}")
+        self._id = result.inserted_id
+        return self._id
+
+    def update_room(self, room_id, updates):
+        """
+        Updates a user doc with the given updates.
+        """
+        query_filter = {"_id": room_id}
+        update_operation = {"$set": updates}
+
+        result = room_collection.update_one(query_filter, update_operation)
+        print(f"Room {room_id} update result: {result.modified_count} modified")
+        return result
+
 
 class room_holder:
     def __init__(self):
@@ -102,18 +195,54 @@ class room_holder:
         self._array_of_rooms = [[None for _ in range(self._cols)] for _ in range(self._rows)]
         self._cur_pos_x = 0
         self._cur_pos_y = 0
+        self._npc_factory = None
 
     def add_empty_room(self, x_row, y_col):
         print(f"Added empty room at x_row: {x_row}, y_col: {y_col}")
-        room = Room()
+        room = Room(x_row, y_col, npc_factory=self._npc_factory)
         room._seed = hash(f"{x_row}_{y_col}")
         self._array_of_rooms[y_col][x_row] = room
+        return room.store_room()
 
-    def get_room(self, x_row, y_col):
-        return self._array_of_rooms[y_col][x_row]
+    def get_room(self, userId, x, y):
+        if y < 0 or y >= self._rows or x < 0 or x >= self._cols:
+            return None
 
-    def get_current_room(self):
-        return self._array_of_rooms[self._cur_pos_y][self._cur_pos_x]
+        cached_room = self._array_of_rooms[y][x]
+        if cached_room is not None:
+            if getattr(cached_room, "_npc_factory", None) is None:
+                cached_room._npc_factory = getattr(self, "_npc_factory", None)
+            return cached_room
+
+        player = all_global_vars.get_player_character(userId)
+        room_id = player.get_room_id_at(x,y)
+
+        if room_id is None:
+            return None
+
+        mongo_room_id = ObjectId(room_id) if not isinstance(room_id, ObjectId) else room_id
+
+        room_doc = room_collection.find_one({"_id": mongo_room_id})
+        if not room_doc:
+            return None
+
+        r = Room(x, y, npc_factory=getattr(self, "_npc_factory", None))
+        r._id = room_doc["_id"]
+        r._visited = bool(room_doc.get("visited", False))
+        r._description = room_doc.get("description")
+        r._items = room_doc.get("items") or []
+        r._seed = room_doc.get("seed")
+        r._npc_id = room_doc.get("_npc_id")
+        r._npc = None
+
+        self._array_of_rooms[y][x] = r
+        return r
+
+    def get_current_room(self, userId):
+        return self.get_room(userId, self._cur_pos_x, self._cur_pos_y)
+
+    def get_current_pos(self):
+        return self._cur_pos_x, self._cur_pos_y
 
     def get_exits(self):
         cur_x = self._cur_pos_x
@@ -138,18 +267,18 @@ class room_holder:
 
         return ret_string
 
-    def get_full_description(self, userId):
+    def get_full_description(self, userId, npc=None):
         print(f"Getting full desc for {self._cur_pos_x}, {self._cur_pos_y}")
 
-        if self.get_current_room() == None:
+        cur_room = self.get_current_room(userId)
+        if cur_room == None:
             return "Error: Tried to describe a None room."
-        if self.get_current_room()._visited == False:
-            self.get_current_room().generate_description(userId)
+        if cur_room._visited == False:
+            cur_room.generate_description(userId)
 
         ret_string = ""
         theme_era = all_global_vars.get_player_character(userId).get_theme()
         # Cache the rendered map HTML per room to avoid re-rendering every time
-        cur_room = self.get_current_room()
         if not getattr(cur_room, "_map_html", None):
             cur_room._map_html = generate_room_map(self, theme_era)
         ret_string += cur_room._map_html
@@ -157,16 +286,16 @@ class room_holder:
 
         # Add world minimap (visited/unvisited/current)
         try:
-            mini_html = self.render_minimap()
+            mini_html = self.render_minimap(userId)
             ret_string += f'<div data-role="worldmap">{mini_html}</div>'
             ret_string += "<BR>"
         except Exception:
             pass
 
-        ret_string += self.get_current_room()._description
+        ret_string += cur_room._description
         ret_string += "<BR>"
         ret_string += self.get_exits()
-        items_here = getattr(self.get_current_room(), "_items", []) or []
+        items_here = getattr(cur_room, "_items", []) or []
         if items_here:
             def fmt(it):
                 if isinstance(it, dict):
@@ -176,6 +305,15 @@ class room_holder:
         else:
             ret_string += "<BR>Items here: none"
         return ret_string
+
+    def set_npc_factory(self, factory):
+        self._npc_factory = factory
+
+        for y in range(self._rows):
+            for x in range(self._cols):
+                r = self._array_of_rooms[y][x]
+                if r is not None:
+                    r._npc_factory = factory
 
     def to_dict(self):
         """
@@ -211,6 +349,7 @@ class room_holder:
         Rehydrate room object from dictionary data
         """
         re_room_holder = cls()
+        re_room_holder._npc_factory = None
 
         re_room_holder._rows = int(doc.get("rows", 3))
         re_room_holder._cols = int(doc.get("cols", 4))
@@ -219,16 +358,6 @@ class room_holder:
 
         re_room_holder._cur_pos_x = int(doc.get("cur_pos_x", 0))
         re_room_holder._cur_pos_y = int(doc.get("cur_pos_y", 0))
-
-        for room_data in doc.get("rooms", []):
-            x = int(room_data["x"])
-            y = int(room_data["y"])
-            r = Room()
-            r._visited = bool(room_data.get("visited", False))
-            r._description = room_data.get("description", None)
-            r._items = room_data.get("items", []) or []
-            r._seed = room_data.get("seed")
-            re_room_holder._array_of_rooms[y][x] = r
 
         return re_room_holder
 
@@ -243,14 +372,14 @@ class room_holder:
 
         player_character.update_char(char_id, {"rooms_visited": self.to_dict()})
 
-    def list_items(self):
-        cur = self.get_current_room()
+    def list_items(self, userId):
+        cur = self.get_current_room(userId)
         if cur is None:
             return []
         return list(getattr(cur, "_items", []) or [])
 
-    def pickup_item(self, item_name, player_character):
-        cur = self.get_current_room()
+    def pickup_item(self, userId, item_name, player_character):
+        cur = self.get_current_room(userId)
         if cur is None:
             return False, "No room found."
         if not getattr(cur, "_items", None):
@@ -264,8 +393,8 @@ class room_holder:
                 return True, name
         return False, "That item is not here."
 
-    def drop_item(self, item_name, player_character):
-        cur = self.get_current_room()
+    def drop_item(self, userId, item_name, player_character):
+        cur = self.get_current_room(userId)
         if cur is None:
             return False, "No room found."
         removed = player_character.remove_item(item_name)
@@ -280,16 +409,32 @@ class room_holder:
         return True, name
 
     def describe_npc(self, userId):
-        return self.get_current_room()._npc._name + " looks like " + self.get_current_room()._npc._description
+        room = self.get_current_room(userId)
+        if room is None:
+            return "No room found."
+
+        npc = room.get_npc()
+        if npc is None:
+            return "There is no NPC here."
+
+        name = npc.get_name() or "Someone"
+        desc = npc.get_description() or "nothing specific."
+        return name + " looks like " + desc
 
     def talk_to_npc(self, userId, talk_string):
-        return self.get_current_room()._npc.talk(userId, talk_string)
+        room = self.get_current_room(userId)
+        if room is None:
+            return "No room found."
+        npc = room.get_npc()
+        if npc is None:
+            return "There is no one here to talk to."
+        return npc.talk(userId, talk_string)
 
     def check_pass_npc(self, userId):
-        room = self.get_current_room()
+        room = self.get_current_room(userId)
         if not room or room._npc is None:
             return "There is no NPC here."
-        return self.get_current_room()._npc.allow_pass(userId)
+        return self.get_current_room(userId).get_npc().allow_pass(userId)
 
     def move_north(self, userId):
         cur_x = self._cur_pos_x
@@ -297,9 +442,16 @@ class room_holder:
         arr = self._array_of_rooms
 
         if self._rows > cur_y + 1:
-            if arr[cur_y + 1][cur_x] != None:
-                self._cur_pos_y += 1
-                return self.get_full_description(userId)
+            next_room = self.get_room(userId, cur_x, cur_y + 1) # Updating room logic to check/generate rooms
+            if next_room is None:
+                return "Can't move that way!"
+
+            self._cur_pos_y += 1
+            return self.get_full_description(userId)
+
+            # if arr[cur_y + 1][cur_x] != None:
+            #     self._cur_pos_y += 1
+            #     return self.get_full_description(userId)
 
         return "Can't move that way!"
 
@@ -341,7 +493,7 @@ class room_holder:
 
         return "Can't move that way!"
 
-    def render_minimap(self):
+    def render_minimap(self, userId):
         """Return an HTML snippet with an ASCII-style minimap of rooms.
 
         Legend:
@@ -350,6 +502,11 @@ class room_holder:
         - [?] undiscovered but generated room (dim)
         Empty space means no room exists at that coordinate.
         """
+
+        player = all_global_vars.get_player_character(userId)
+        for entry in player.get_world_map():
+            x, y = entry["x"], entry["y"]
+            self.get_room(userId, x, y)
 
         rows = self._rows
         cols = self._cols
