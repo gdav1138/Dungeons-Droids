@@ -29,6 +29,9 @@ def initializeStartUp(userId):
         character_id = character.store_player_character()  # Store character and get character_id
         user_db.update_user(userId, {"_player_character_id": character_id})  # Update user with character_id
 
+        # Print Game Version
+        print(f"<strong>{all_global_vars.get_version(userId)}</strong><BR><BR>")
+
         # Update section
         all_global_vars.set_section(userId, character.get_section())
 
@@ -43,6 +46,7 @@ def initializeStartUp(userId):
         # Reinitialize global container and load it with the rehydrated character
         all_global_vars.create_player(userId)
         all_global_vars.rehydrate_globals(userId, user_doc, returning_character)
+
         all_global_vars.get_room_holder(userId).get_full_description(userId)
 
 
@@ -52,19 +56,28 @@ def doSectionStarting(userId):
 
     print("Starting up doSectionStarting with userID: " + str(userId))
 
+    # Print Game Version
+    print(f"<strong>{all_global_vars.get_version(userId)}</strong><BR><BR>")
+
     client_response = ""
+
     client_response += call_ai(
         "Greet the player as our new Text Game With AI Called Dungeons and Droids. "
-        "Don't give any instructions to the user.")
+        "Don't give any instructions to the user."
+    )
     client_response += "<BR>"
+
     new_theme = call_ai(
         "Pick an theme for this game to take place in. Make the answer very short, "
-        "just a word or two, like medieval or sci-fi, but be creative")
+        "just a word or two, like medieval or sci-fi, but be creative"
+    )
 
     client_response += "This game takes place in the " + new_theme + " era. <BR>"
     client_response += "What should we call your character?<BR>"
+
     all_global_vars.get_player_character(userId).set_section(section="GetPlayerName")
     all_global_vars.get_player_character(userId).set_theme(new_theme)
+
     return client_response
 
 

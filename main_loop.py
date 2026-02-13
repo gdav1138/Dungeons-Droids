@@ -51,7 +51,7 @@ def do_main_loop(userInput, userId):
     userInput = userInput.lower()
     # Handle empty/None input by showing current room
     if userInput == "none" or userInput == "":
-        return all_global_vars.get_room_holder(userId).get_full_description(
+        return all_global_vars.get_player_character(userId).get_room_array().get_full_description(
             userId
         )
     if userInput == "restart":
@@ -181,6 +181,8 @@ def do_main_loop(userInput, userId):
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
         return room_array.talk_to_npc(userId, userInput[3:])
+    if userInput.startswith("version"):
+        return all_global_vars.get_version()
     
     return "Invalid input. Type help for options."
 
