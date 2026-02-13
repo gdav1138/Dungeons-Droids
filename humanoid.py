@@ -74,14 +74,24 @@ class Humanoid:
 class PlayerCharacter(Humanoid):
     def __init__(self):
         super().__init__()
+        self._cha = None  # charisma
+        self._wis = None  # wisdom
+        self._con = None  # constitution
         self._exp = 0
         self._section = "Starting"
         self._theme = None
         self._rooms = room_holder()
         self._world_map = []
 
-    # def get_player_character_id(self):
-    #     return self._player_character_id
+        # Appearance/customization (freeform + optional structured fields)
+        self._appearance = {
+            "summary": None,  # 1-sentence description
+            "pronouns": None,
+            "hair": None,
+            "eyes": None,
+            "outfit": None,
+            "feature": None,  # distinguishing feature
+        }
 
     def get_char_by_id(self, charId):
         """
@@ -111,6 +121,34 @@ class PlayerCharacter(Humanoid):
     def get_world_map(self):
         return self._world_map
 
+    def get_appearance(self):
+        return dict(self._appearance) if isinstance(self._appearance, dict) else {}
+
+    def get_stats(self):
+        """Return a normalized dict of core stats (missing -> 0)."""
+        def n(v):
+            try:
+                return int(v)
+            except Exception:
+                return 0
+        return {
+            "str": n(self._str),
+            "int": n(self._int),
+            "dex": n(self._dex),
+            "cha": n(self._cha),
+            "wis": n(self._wis),
+            "con": n(self._con),
+        }
+
+    def set_cha(self, new_cha_count):
+        self._cha = new_cha_count
+
+    def set_wis(self, new_wis_count):
+        self._wis = new_wis_count
+
+    def set_con(self, new_con_count):
+        self._con = new_con_count
+
     def set_exp(self, new_exp_count):
         self._exp = new_exp_count
 
@@ -119,6 +157,23 @@ class PlayerCharacter(Humanoid):
 
     def set_theme(self, theme):
         self._theme = theme
+
+    def set_appearance_summary(self, summary: str):
+        if not isinstance(self._appearance, dict):
+            self._appearance = {}
+        self._appearance["summary"] = (summary or "").strip() or None
+
+    def set_pronouns(self, pronouns: str):
+        if not isinstance(self._appearance, dict):
+            self._appearance = {}
+        self._appearance["pronouns"] = (pronouns or "").strip() or None
+
+    def set_appearance_field(self, key: str, value: str):
+        if not isinstance(self._appearance, dict):
+            self._appearance = {}
+        if key not in ("hair", "eyes", "outfit", "feature"):
+            raise ValueError("Invalid appearance key")
+        self._appearance[key] = (value or "").strip() or None
 
     def update_player_id(self, new_id):
         self.player_id = new_id
@@ -157,6 +212,10 @@ class PlayerCharacter(Humanoid):
             "str": self._str,
             "int": self._int,
             "dex": self._dex,
+            "cha": self._cha,
+            "wis": self._wis,
+            "con": self._con,
+            "appearance": dict(self._appearance) if isinstance(self._appearance, dict) else {},
             "created_at": datetime.now(),
             "section": self._section,
             "theme": self._theme,
@@ -187,6 +246,10 @@ class PlayerCharacter(Humanoid):
             "str": self._str,
             "int": self._int,
             "dex": self._dex,
+            "cha": self._cha,
+            "wis": self._wis,
+            "con": self._con,
+            "appearance": dict(self._appearance) if isinstance(self._appearance, dict) else {},
             "created_at": datetime.now(),
             "section": self._section,
             "theme": self._theme,
@@ -309,6 +372,73 @@ class Npc(Humanoid):
 
     def get_past_convo(self):
         return self._past_conversation
+
+    def _player_profile(self, userId):
+        """Build a short player profile string for prompting NPC behavior."""
+        pc = all_global_vars.get_player_character(userId)
+        name = getattr(pc, "_name", None) or "the player"
+
+        # Stats (missing -> 0)
+        try:
+            stats = pc.get_stats()
+        except Exception:
+            stats = {
+                "str": getattr(pc, "_str", 0) or 0,
+                "int": getattr(pc, "_int", 0) or 0,
+                "dex": getattr(pc, "_dex", 0) or 0,
+                "cha": getattr(pc, "_cha", 0) or 0,
+                "wis": getattr(pc, "_wis", 0) or 0,
+                "con": getattr(pc, "_con", 0) or 0,
+            }
+
+        # Appearance
+        try:
+            app = pc.get_appearance()
+        except Exception:
+            app = {}
+        pronouns = (app.get("pronouns") or "").strip()
+        summary = (app.get("summary") or "").strip()
+
+        parts = [f"Player name: {name}."]
+        if pronouns:
+            parts.append(f"Player pronouns: {pronouns}.")
+        if summary:
+            parts.append(f"Player appearance: {summary}.")
+        parts.append(
+            "Player stats (0-10): "
+            f"STR {stats.get('str', 0)}, INT {stats.get('int', 0)}, DEX {stats.get('dex', 0)}, "
+            f"CHA {stats.get('cha', 0)}, WIS {stats.get('wis', 0)}, CON {stats.get('con', 0)}."
+        )
+        return " ".join(parts)
+
+    def _interaction_modifiers(self, userId):
+        """Compute simple, explainable modifiers for negotiation."""
+        pc = all_global_vars.get_player_character(userId)
+        try:
+            s = pc.get_stats()
+        except Exception:
+            s = {}
+        str_ = int(s.get("str", getattr(pc, "_str", 0) or 0) or 0)
+        int_ = int(s.get("int", getattr(pc, "_int", 0) or 0) or 0)
+        dex_ = int(s.get("dex", getattr(pc, "_dex", 0) or 0) or 0)
+        cha_ = int(s.get("cha", getattr(pc, "_cha", 0) or 0) or 0)
+        wis_ = int(s.get("wis", getattr(pc, "_wis", 0) or 0) or 0)
+        con_ = int(s.get("con", getattr(pc, "_con", 0) or 0) or 0)
+
+        # Persuasion: CHA primary, INT/WIS help wording/reading the room
+        persuasion = cha_ + (int_ // 3) + (wis_ // 3)
+        # Intimidation: STR primary, CON backing
+        intimidation = str_ + (con_ // 2)
+        # Awareness: WIS primary, INT secondary (used for NPC reading the player)
+        awareness = wis_ + (int_ // 2)
+        # Agility/escape: DEX
+        agility = dex_
+        return {
+            "persuasion": persuasion,     # ~0-16
+            "intimidation": intimidation, # ~0-15
+            "awareness": awareness,       # ~0-15
+            "agility": agility,           # 0-10
+        }
 
     def talk(self, userId, talk_string):
         call_string = "For the NPC named " + self._name + " with the descrption " + self._description

@@ -101,47 +101,47 @@ def doGetPlayerName(userInput, userId):
         all_global_vars.get_player_character(userId).update_char(character_id, {"name": new_name})
 
     # Move to stat allocation - start with strength
-    all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerPronouns")
     return ("Welcome, " + new_name
             + "!<BR><BR>Before stats, let's customize your character."
               "<BR>What pronouns should NPCs use for you? (examples: they/them, she/her, he/him, or type 'skip')<BR>")
 
 
-    def doGetPlayerPronouns(userInput, userId):
-        """Optional pronouns field, then move to appearance summary."""
-        pronouns = (userInput or "").strip()
-        character = all_global_vars.get_player_character(userId)
-        if pronouns and pronouns.lower() != "skip":
-            character.set_pronouns(pronouns)
+def doGetPlayerPronouns(userInput, userId):
+    """Optional pronouns field, then move to appearance summary."""
+    pronouns = (userInput or "").strip()
+    character = all_global_vars.get_player_character(userId)
+    if pronouns and pronouns.lower() != "skip":
+        character.set_pronouns(pronouns)
 
-            current_user = user_db.get_user_by_id(userId)
-            if current_user and current_user.get("_player_character_id"):
-                character_id = current_user["_player_character_id"]
-                character.update_char(character_id, {"appearance.pronouns": pronouns})
+        current_user = user_db.get_user_by_id(userId)
+        if current_user and current_user.get("_player_character_id"):
+            character_id = current_user["_player_character_id"]
+            character.update_char(character_id, {"appearance.pronouns": pronouns})
 
-        all_global_vars.get_player_character(userId).set_section(section="GetPlayerAppearance")
-        return ("In one sentence, describe your character's appearance (hair/eyes/outfit/anything you want)."
-                "<BR>(Or type 'skip')<BR>")
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerAppearance")
+    return ("In one sentence, describe your character's appearance (hair/eyes/outfit/anything you want)."
+            "<BR>(Or type 'skip')<BR>")
 
 
-    def doGetPlayerAppearance(userInput, userId):
-        """Freeform appearance summary stored on character, then start stat allocation."""
-        summary = (userInput or "").strip()
-        character = all_global_vars.get_player_character(userId)
-        if summary and summary.lower() != "skip":
-            character.set_appearance_summary(summary)
+def doGetPlayerAppearance(userInput, userId):
+    """Freeform appearance summary stored on character, then start stat allocation."""
+    summary = (userInput or "").strip()
+    character = all_global_vars.get_player_character(userId)
+    if summary and summary.lower() != "skip":
+        character.set_appearance_summary(summary)
 
-            current_user = user_db.get_user_by_id(userId)
-            if current_user and current_user.get("_player_character_id"):
-                character_id = current_user["_player_character_id"]
-                character.update_char(character_id, {"appearance.summary": summary})
+        current_user = user_db.get_user_by_id(userId)
+        if current_user and current_user.get("_player_character_id"):
+            character_id = current_user["_player_character_id"]
+            character.update_char(character_id, {"appearance.summary": summary})
 
-        all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
-        return ("Great. Now for stats.<BR><BR>"
-                "You have <strong>20</strong> stat points to allocate across "
-                "<strong>Strength, Intelligence, Dexterity, Charisma, Wisdom, Constitution</strong>."
-                "<BR>Each stat must be between 0 and 10, and the total must equal 20."
-                "<BR><BR>Enter your <strong>Strength</strong>:<BR>")
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+    return ("Great. Now for stats.<BR><BR>"
+            "You have <strong>20</strong> stat points to allocate across "
+            "<strong>Strength, Intelligence, Dexterity, Charisma, Wisdom, Constitution</strong>."
+            "<BR>Each stat must be between 0 and 10, and the total must equal 20."
+            "<BR><BR>Enter your <strong>Strength</strong>:<BR>")
 
 
 def doGetPlayerStrength(userInput, userId):
@@ -216,13 +216,13 @@ def doGetPlayerDexterity(userInput, userId):
         running_total = character._str + character._int + dex
         if running_total > 20:
             all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
-            return ("Error: Your stats exceed 20 points."
+            return ("Error: Your stats exceed 20 points." +
                     "<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>")
 
         remaining = 20 - running_total
         all_global_vars.get_player_character(userId).set_section(section="GetPlayerCharisma")
-        return (f"Dexterity set to {dex}.<BR>You have {remaining} points remaining."
-                f"<BR>Enter your <strong>Charisma</strong>:<BR>")
+        return (f"Dexterity set to {dex}.<BR>You have {remaining} points remaining." +
+                "<BR>Enter your <strong>Charisma</strong>:<BR>")
     except ValueError:
         return "Please enter a valid number for Dexterity.<BR>"
     except Exception as e:
