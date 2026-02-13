@@ -1,12 +1,12 @@
 """
-Tests for NPC feature: player profile, interaction modifiers, and allow_pass/talk (mocked AI).
+Tests for NPC feature: player profile, interaction modifiers, and allow_pass/talk.
 """
 import pytest
 from unittest.mock import patch, MagicMock
 
 
 class TestNpcPlayerProfile:
-    """Tests for _player_profile (no API calls)."""
+    """Tests for _player_profile"""
 
     def test_profile_includes_name_and_stats(self, userId):
         from npc import npc
@@ -41,7 +41,7 @@ class TestNpcPlayerProfile:
 
 
 class TestNpcInteractionModifiers:
-    """Tests for _interaction_modifiers (pure math, no AI)."""
+    """Tests for _interaction_modifiers"""
 
     def test_modifiers_structure_and_agility(self, userId):
         from npc import npc

@@ -4,6 +4,7 @@
 # examples.
 
 from all_global_vars import all_global_vars
+from quests import format_quest_for_display
 import hello
 
 def _format_inventory(inv_list):
@@ -63,6 +64,7 @@ def do_main_loop(userInput, userId):
             + "north, south, east, west - Move to a new location<BR>"
             + "describe npc - describes the npc in the room<BR>"
             + "inventory (i) - show your items<BR>"
+            + "quests (q) - show your active quests<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
         )
@@ -74,6 +76,16 @@ def do_main_loop(userInput, userId):
     if userInput in ("inventory", "inv", "i"):
         inv = all_global_vars.get_player_character(userId).get_inventory()
         return _format_inventory(inv)
+
+    # Quest log
+    if userInput in ("quests", "q"):
+        quest_list = all_global_vars.get_player_character(userId).get_quests()
+        if not quest_list:
+            return "Active quests: (none)<BR>"
+        lines = ["Active quests:"]
+        for q in quest_list:
+            lines.append("- " + format_quest_for_display(q))
+        return "<BR>".join(lines) + "<BR>"
 
     # Prepare current room_array for user action
     player_char = all_global_vars.get_player_character(userId)

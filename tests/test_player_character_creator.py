@@ -1,6 +1,6 @@
 """
 Tests for Character Player Creator: player_character model and hello.py creation flow
-(name, pronouns, appearance, stats, confirmation). No DB or AI calls.
+(name, pronouns, appearance, stats, confirmation)
 """
 import pytest
 from unittest.mock import patch, MagicMock

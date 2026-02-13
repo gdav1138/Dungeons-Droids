@@ -1,6 +1,5 @@
 """
 Tests for Map Generator: generate_room_map output and drawing helpers.
-No AI or network; uses in-memory room_holder and Room.
 """
 import pytest
 from PIL import Image, ImageDraw

@@ -1,5 +1,6 @@
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
+from quests import create_random_quest
 import random
 
 class npc:
@@ -86,6 +87,9 @@ class npc:
             str(self._friendlyness) + " Just write about a paragraph of plain text to describe the npc, like in a novel")
 
         self._past_conversation = []
+        # Chance that this NPC has a quest to offer (defeat enemies, obtain item, obtain gold, etc.)
+        theme = all_global_vars.get_player_character(userId).get_theme() or "fantasy"
+        self._quest_to_offer = create_random_quest(theme, self._name) if random.random() < 0.35 else None
     
     def talk(self, userId, talk_string):
         mods = self._interaction_modifiers(userId)
@@ -103,10 +107,26 @@ class npc:
             call_string += line + " " 
         call_string += "And the current thing they're saying is: "  + talk_string
         call_string += "Say just the response text you'd say in a conversation as that npc, nothing else"
-        response =  call_ai(call_string)
+        response = call_ai(call_string)
         self._past_conversation.append(talk_string)
         self._past_conversation.append(response)
-        return self._name + " says " + response
+
+        out = self._name + " says " + response
+
+        # Sometimes offer a quest if this NPC has one and the player doesn't have it yet
+        if self._quest_to_offer:
+            pc = all_global_vars.get_player_character(userId)
+            if not pc.has_quest(self._quest_to_offer["id"]) and random.random() < 0.4:
+                pc.add_quest(self._quest_to_offer)
+                q = self._quest_to_offer
+                out += (
+                    f" Then {self._name} adds: I have a task for you, if you're willing. "
+                    f"{q['description']} In return, I can offer {q['reward_description']}. "
+                    "(Quest added to your log. Type 'quests' to view.)"
+                )
+                self._quest_to_offer = None
+
+        return out
 
     def allow_pass(self, userId):
         print("In allow pass")
