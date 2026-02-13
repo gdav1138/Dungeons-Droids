@@ -439,7 +439,6 @@ class room_holder:
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
-        arr = self._array_of_rooms
 
         if self._rows > cur_y + 1:
             next_room = self.get_room(userId, cur_x, cur_y + 1) # Updating room logic to check/generate rooms
@@ -449,21 +448,19 @@ class room_holder:
             self._cur_pos_y += 1
             return self.get_full_description(userId)
 
-            # if arr[cur_y + 1][cur_x] != None:
-            #     self._cur_pos_y += 1
-            #     return self.get_full_description(userId)
-
         return "Can't move that way!"
 
     def move_south(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
-        arr = self._array_of_rooms
 
-        if 0 <= cur_y - 1:
-            if arr[cur_y - 1][cur_x] != None:
-                self._cur_pos_y -= 1
-                return self.get_full_description(userId)
+        if self._rows > cur_y - 1:
+            next_room = self.get_room(userId, cur_x, cur_y - 1)  # Updating room logic to check/generate rooms
+            if next_room is None:
+                return "Can't move that way!"
+
+            self._cur_pos_y -= 1
+            return self.get_full_description(userId)
 
         return "Can't move that way!"
 
@@ -471,12 +468,14 @@ class room_holder:
         """Move player to the east room if available"""
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
-        arr = self._array_of_rooms
 
         if self._rows > cur_x + 1:
-            if arr[cur_y][cur_x + 1] is not None:
-                self._cur_pos_x += 1
-                return self.get_full_description(userId)
+            next_room = self.get_room(userId, cur_x + 1, cur_y)  # Updating room logic to check/generate rooms
+            if next_room is None:
+                return "Can't move that way!"
+
+            self._cur_pos_x += 1
+            return self.get_full_description(userId)
 
         return "Can't move that way!"
 
@@ -484,12 +483,14 @@ class room_holder:
         """Move player to the west room if available"""
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
-        arr = self._array_of_rooms
 
-        if cur_x - 1 >= 0:
-            if arr[cur_y][cur_x - 1] is not None:
-                self._cur_pos_x -= 1
-                return self.get_full_description(userId)
+        if self._rows > cur_x - 1:
+            next_room = self.get_room(userId, cur_x - 1, cur_y)  # Updating room logic to check/generate rooms
+            if next_room is None:
+                return "Can't move that way!"
+
+            self._cur_pos_x -= 1
+            return self.get_full_description(userId)
 
         return "Can't move that way!"
 
