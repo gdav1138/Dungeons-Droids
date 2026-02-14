@@ -1,6 +1,6 @@
 # Main flask application. Handles sessions, routing, and OpenAI communication
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, flash
-from hello import getOutput, initializeStartUp
+from hello import getOutput, InitializeStartUp
 from user_db import register_user, authenticate_user, get_user_by_username
 from all_global_vars import all_global_vars
 import uuid
@@ -84,11 +84,15 @@ def home():
     if request.method == "POST":
         try:
             print("In POST")
+            user_id = session.get("userId")
+            if user_id and not all_global_vars.has_userId(user_id):
+                InitializeStartUp(user_id)
             data = request.get_json(force=True)
             userInput = data.get("command", "").strip()
             response_text = getOutput(userId=session["userId"], userInput=userInput)
             player_char = all_global_vars.get_player_character(session["userId"])
-            items_here = all_global_vars.get_player_character(session["userId"]).get_room_array().list_items()
+            items_here = (all_global_vars.get_player_character(session["userId"]).
+                          get_room_array().list_items(session["userId"]))
             return jsonify({
                 "response": response_text,
                 "inventory": player_char.get_inventory(),
@@ -105,7 +109,7 @@ def home():
     username = session.get("username", "User")
     if user_id:
         if not all_global_vars.has_userId(user_id):
-            initializeStartUp(user_id)
+            InitializeStartUp(user_id)
 
         first_response = getOutput(userId=session["userId"], userInput="None")
     else:

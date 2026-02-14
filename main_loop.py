@@ -4,7 +4,9 @@
 # examples.
 
 from all_global_vars import all_global_vars
+from humanoid import Npc
 import hello
+
 
 def _format_inventory(inv_list):
     if not inv_list:
@@ -20,7 +22,7 @@ def _brief_room_view(room_array, userId):
     # Generate/refresh map and minimap
     room_array.get_full_description(userId)
 
-    cur_room = room_array.get_current_room()
+    cur_room = room_array.get_current_room(userId)
     parts = []
     if cur_room and getattr(cur_room, "_map_html", None):
         parts.append(cur_room._map_html)
@@ -67,9 +69,6 @@ def do_main_loop(userInput, userId):
             + "drop <item> - drop an item from inventory<BR>"
         )
 
-    # Prepare current room_array for user action
-    room_array = all_global_vars.get_player_character(userId).get_room_array()
-
     # Inventory view
     if userInput in ("inventory", "inv", "i"):
         inv = all_global_vars.get_player_character(userId).get_inventory()
@@ -85,7 +84,7 @@ def do_main_loop(userInput, userId):
             item = userInput[len(prefix):].strip()
             if not item:
                 return "Specify what to pick up.<BR>"
-            success, info = room_array.pickup_item(item, player_char)
+            success, info = room_array.pickup_item(userId, item, player_char)
             if success:
                 room_array.persist_room(userId, player_char)
                 from user_db import get_user_by_id
@@ -103,7 +102,7 @@ def do_main_loop(userInput, userId):
         item = userInput[len("drop "):].strip()
         if not item:
             return "Specify what to drop.<BR>"
-        success, info = room_array.drop_item(item, player_char)
+        success, info = room_array.drop_item(userId, item, player_char)
         if success:
             room_array.persist_room(userId, player_char)
             from user_db import get_user_by_id
@@ -118,7 +117,7 @@ def do_main_loop(userInput, userId):
     if userInput == 'look':
         return room_array.get_full_description(userId)
     if userInput == 'north':
-        if room_array.get_current_room()._npc is None:
+        if room_array.get_current_room(userId).get_npc() is None:
             okay_to_move = True
             npc_response = "There is no NPC in this room."
         else:
@@ -130,7 +129,7 @@ def do_main_loop(userInput, userId):
         else:
             return npc_response
     if userInput == 'south':
-        if room_array.get_current_room()._npc is None:
+        if room_array.get_current_room(userId).get_npc() is None:
             okay_to_move = True
             npc_response = "There is no NPC in this room."
         else:
@@ -142,7 +141,7 @@ def do_main_loop(userInput, userId):
         else:
             return npc_response
     if userInput == 'east':
-        if room_array.get_current_room()._npc is None:
+        if room_array.get_current_room(userId).get_npc() is None:
             okay_to_move = True
             npc_response = "There is no NPC in this room."
         else:
@@ -154,7 +153,7 @@ def do_main_loop(userInput, userId):
         else:
             return npc_response
     if userInput == 'west':
-        if room_array.get_current_room()._npc is None:
+        if room_array.get_current_room(userId).get_npc() is None:
             okay_to_move = True
             npc_response = "There is no NPC in this room."
         else:
@@ -170,7 +169,7 @@ def do_main_loop(userInput, userId):
     if userInput.startswith("say"):
         return room_array.talk_to_npc(userId, userInput[3:])
     if userInput.startswith("version"):
-        return all_global_vars.get_version()
+        return all_global_vars.get_version(userId)
     
     return "Invalid input. Type help for options."
 

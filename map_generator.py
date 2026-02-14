@@ -54,11 +54,17 @@ def generate_room_map(room_holder, theme_era="Medieval"):
     cols = room_holder._cols
     rows = room_holder._rows
     exits_map = {
-        'north': bool(cols > cur_y + 1 and room_array[cur_y + 1][cur_x] is not None),
-        'south': bool(cur_y > 0 and room_array[cur_y - 1][cur_x] is not None),
-        'east': bool(rows > cur_x + 1 and room_array[cur_y][cur_x + 1] is not None),
-        'west': bool(cur_x > 0 and room_array[cur_y][cur_x - 1] is not None),
+        'north': bool(cur_y + 1 < rows and room_array[cur_y + 1][cur_x] is not None),
+        'south': bool(cur_y - 1 >= 0 and room_array[cur_y - 1][cur_x] is not None),
+        'east': bool(cur_x + 1 < cols and room_array[cur_y][cur_x + 1] is not None),
+        'west': bool(cur_x - 1 >= 0 and room_array[cur_y][cur_x - 1] is not None),
     }
+    # exits_map = {
+    #     'north': bool(cols > cur_y + 1 and room_array[cur_y + 1][cur_x] is not None),
+    #     'south': bool(cur_y > 0 and room_array[cur_y - 1][cur_x] is not None),
+    #     'east': bool(rows > cur_x + 1 and room_array[cur_y][cur_x + 1] is not None),
+    #     'west': bool(cur_x > 0 and room_array[cur_y][cur_x - 1] is not None),
+    # }
 
     # Fast path: avoid network calls for layout to reduce latency
     use_ai_layout = False  # set True to let the AI suggest colors/props
