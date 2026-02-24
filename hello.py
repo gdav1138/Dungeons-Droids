@@ -71,6 +71,7 @@ def doSectionStarting(userId):
         "Don't give any instructions to the user."
     )
     client_response += "<BR>"
+<<<<<<< mikebranch
 
     client_response += ("Choose your world:<BR>"
                         "1. <strong>Medieval</strong> — stone dungeons, swords, sorcery<BR>"
@@ -79,6 +80,19 @@ def doSectionStarting(userId):
                         "<BR>Type 1, 2, or 3:<BR>")
 
     all_global_vars.get_player_character(userId).set_section(section="GetPlayerTheme")
+=======
+
+    new_theme = call_ai(
+        "Pick an theme for this game to take place in. Make the answer very short, "
+        "just a word or two, like medieval or sci-fi, but be creative"
+    )
+
+    client_response += "This game takes place in the " + new_theme + " era. <BR>"
+    client_response += "What should we call your character?<BR>"
+
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerName")
+    all_global_vars.get_player_character(userId).set_theme(new_theme)
+>>>>>>> main
 
     return client_response
 
@@ -223,6 +237,7 @@ def doGetPlayerIntelligence(userInput, userId):
         return "Please enter a valid number for Intelligence.<BR>"
     except Exception as e:
         return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
+<<<<<<< mikebranch
 
 
 def doGetPlayerDexterity(userInput, userId):
@@ -333,6 +348,118 @@ def doGetPlayerConstitution(userInput, userId):
                 f"Total: {total} points<BR><BR>"
                 f"Type <strong>yes</strong> to confirm, or <strong>no</strong> to change your stats:<BR>")
     except ValueError:
+=======
+
+
+def doGetPlayerDexterity(userInput, userId):
+    """Handles dexterity input. Then moves to charisma."""
+    try:
+        dex = int(userInput.strip())
+        if dex < 0 or dex > 10:
+            return "Dexterity must be between 0 and 10.<BR>"
+
+        character = all_global_vars.get_player_character(userId)
+        character._dex = dex
+
+        running_total = character._str + character._int + dex
+        if running_total > 20:
+            all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+            return ("Error: Your stats exceed 20 points." +
+                    "<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>")
+
+        remaining = 20 - running_total
+        all_global_vars.get_player_character(userId).set_section(section="GetPlayerCharisma")
+        return (f"Dexterity set to {dex}.<BR>You have {remaining} points remaining." +
+                "<BR>Enter your <strong>Charisma</strong>:<BR>")
+    except ValueError:
+        return "Please enter a valid number for Dexterity.<BR>"
+    except Exception as e:
+        return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
+
+
+def doGetPlayerCharisma(userInput, userId):
+    """Handles charisma input. Then moves to wisdom."""
+    try:
+        cha = int(userInput.strip())
+        if cha < 0 or cha > 10:
+            return "Charisma must be between 0 and 10.<BR>"
+
+        character = all_global_vars.get_player_character(userId)
+        character._cha = cha
+
+        running_total = character._str + character._int + character._dex + cha
+        if running_total > 20:
+            all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+            return ("Error: Your stats exceed 20 points."
+                    "<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>")
+
+        remaining = 20 - running_total
+        all_global_vars.get_player_character(userId).set_section(section="GetPlayerWisdom")
+        return (f"Charisma set to {cha}.<BR>You have {remaining} points remaining."
+                f"<BR>Enter your <strong>Wisdom</strong>:<BR>")
+    except ValueError:
+        return "Please enter a valid number for Charisma.<BR>"
+    except Exception as e:
+        return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
+
+
+def doGetPlayerWisdom(userInput, userId):
+    """Handles wisdom input. Then moves to constitution."""
+    try:
+        wis = int(userInput.strip())
+        if wis < 0 or wis > 10:
+            return "Wisdom must be between 0 and 10.<BR>"
+
+        character = all_global_vars.get_player_character(userId)
+        character._wis = wis
+
+        running_total = character._str + character._int + character._dex + character._cha + wis
+        if running_total > 20:
+            all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+            return ("Error: Your stats exceed 20 points."
+                    "<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>")
+
+        remaining = 20 - running_total
+        all_global_vars.get_player_character(userId).set_section(section="GetPlayerConstitution")
+        return (f"Wisdom set to {wis}.<BR>You have {remaining} points remaining."
+                f"<BR>Enter your <strong>Constitution</strong>:<BR>")
+    except ValueError:
+        return "Please enter a valid number for Wisdom.<BR>"
+    except Exception as e:
+        return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
+
+
+def doGetPlayerConstitution(userInput, userId):
+    """Handles constitution input, validates total == 20, then confirmation."""
+    try:
+        con = int(userInput.strip())
+        if con < 0 or con > 10:
+            return "Constitution must be between 0 and 10.<BR>"
+
+        character = all_global_vars.get_player_character(userId)
+        character._con = con
+
+        total = (
+            character._str + character._int + character._dex +
+            character._cha + character._wis + con
+        )
+        if total != 20:
+            all_global_vars.get_player_character(userId).set_section(section="GetPlayerStrength")
+            return (f"Error: Your total is {total} points. You must allocate exactly 20."
+                    "<BR><BR>Please enter your stats again.<BR>Enter your <strong>Strength</strong>:<BR>")
+
+        all_global_vars.get_player_character(userId).set_section(section="ConfirmPlayerStats")
+        return (f"Your stat allocation:<BR>"
+                f"Strength: {character._str}<BR>"
+                f"Intelligence: {character._int}<BR>"
+                f"Dexterity: {character._dex}<BR>"
+                f"Charisma: {character._cha}<BR>"
+                f"Wisdom: {character._wis}<BR>"
+                f"Constitution: {character._con}<BR>"
+                f"Total: {total} points<BR><BR>"
+                f"Type <strong>yes</strong> to confirm, or <strong>no</strong> to change your stats:<BR>")
+    except ValueError:
+>>>>>>> main
         return "Please enter a valid number for Constitution.<BR>"
     except Exception as e:
         return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
@@ -348,6 +475,7 @@ def doConfirmPlayerStats(userInput, userId):
         rooms = all_global_vars.get_player_character(userId).get_room_array()
         rooms.set_npc_factory(lambda uid: Npc(uid))
 
+<<<<<<< mikebranch
         # Build a randomized connected dungeon each run.
         # Size and density depend on the selected world theme.
         character = all_global_vars.get_player_character(userId)
@@ -410,6 +538,32 @@ def doConfirmPlayerStats(userInput, userId):
             character.update_world_map(room_id, x, y)
 
         cur_room = rooms.get_room(userId, start_x, start_y)
+=======
+        # Generate a maze of rooms with a clear path
+        # Create a simple branching dungeon structure
+        room_id = rooms.add_empty_room(0, 0)  # Starting room
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 0)
+
+        room_id = rooms.add_empty_room(0, 1)  # North
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 1)
+
+        room_id = rooms.add_empty_room(1, 1)  # East from north
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 1)
+
+        room_id = rooms.add_empty_room(0, 2)  # North again
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 2)
+
+        room_id = rooms.add_empty_room(1, 0)  # East from start
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 0)
+
+        room_id = rooms.add_empty_room(2, 0)  # East again
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 0)
+
+        room_id = rooms.add_empty_room(2, 1)  # North from east path
+        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 1)
+
+        cur_room = rooms.get_room(userId, 0, 0)
+>>>>>>> main
         cur_room.generate_description(userId, npc=Npc(userId))
 
         # Update player state for session

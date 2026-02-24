@@ -4,6 +4,8 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 from google import genai
+import time
+import re
 
 load_dotenv()
 # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -18,6 +20,19 @@ load_dotenv()
 client = genai.Client()
 
 def call_ai(request_text):
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-lite", contents=request_text)
-    return response.text
+    while True:
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash-lite", contents=request_text)
+            return response.text
+        except:
+            print("Got an exception from gemini ai call")
+            time.sleep(1)
+
+
+def _extract_wait_seconds(msg: str):
+    """Try to read a 'wait X seconds' hint from an error message."""
+    m = re.search(r"(\d+)\s*seconds", msg.lower())
+    if m:
+        return int(m.group(1))
+    return None
