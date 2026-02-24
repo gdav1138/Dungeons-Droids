@@ -50,7 +50,7 @@ managing their inventory, fighting, leveling up and more all through a web-based
 
 ## How to play
 After navigating to the proper address, you will be greeted with an authentication page. 
-If you have created an account before, login using your previously created usernam and password.
+If you have created an account before, login using your previously created username and password.
 If you have not created an account, simply enter in your desired username and password and click
 'create account.' 
 
