@@ -116,11 +116,8 @@ def home():
             player_char = all_global_vars.get_player_character(session["userId"])
             items_here = (all_global_vars.get_player_character(session["userId"]).
                           get_room_array().list_items(session["userId"]))
-<<<<<<< mikebranch
             cur_room = player_char.get_room_array().get_current_room(session["userId"])
             room_name = getattr(cur_room, "_room_identity", None) or "Unknown Room"
-=======
->>>>>>> main
             return jsonify({
                 "response": response_text,
                 "inventory": player_char.get_inventory(),
@@ -129,12 +126,10 @@ def home():
                 "room_name": room_name,
             })
         except Exception as e:
-<<<<<<< mikebranch
             traceback.print_exc()
             return jsonify({"response": f"Server error: {str(e)}"}), 500
-=======
+
             return jsonify({"error": str(e)}), 500
->>>>>>> main
         # Include a fresh minimap with every response
         rooms = all_global_vars.get_player_character(session["userId"]).get_room_array()
         map_html = rooms.render_minimap()
@@ -143,7 +138,6 @@ def home():
     user_id = session.get("userId")
     username = session.get("username", "User")
     if user_id:
-<<<<<<< mikebranch
         try:
             if not all_global_vars.has_userId(user_id):
                 InitializeStartUp(user_id)
@@ -156,7 +150,6 @@ def home():
         first_response = "Please log in."
 
     player_char = all_global_vars.get_player_character(user_id) if user_id else None
-=======
         if not all_global_vars.has_userId(user_id):
             InitializeStartUp(user_id)
 
@@ -164,17 +157,13 @@ def home():
     else:
         first_response = "Please log in."
 
->>>>>>> main
     return render_template(
         "gameloop.html",
         first_response=first_response,
         username=username,
-<<<<<<< mikebranch
         first_inventory=[],
         first_stats=_build_stats(player_char),
-=======
         first_inventory=[]
->>>>>>> main
     )
 
     user_id = session.get("userId")
@@ -202,3 +191,4 @@ def home():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
