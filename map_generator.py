@@ -949,4 +949,3 @@ def add_library_furniture(draw, margin, width, height, color):
 def add_room_furniture(draw, description, margin, width, height, color, theme):
     """Legacy: add furniture based on room description."""
     _interior_generic(draw, description, margin, width, height, color, theme)
-
