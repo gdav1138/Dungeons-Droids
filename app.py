@@ -133,15 +133,23 @@ def home():
     username = session.get("username", "User")
     if user_id:
         if not all_global_vars.has_userId(user_id):
-            initializeStartUp(user_id)
+            try:
+                InitializeStartUp(user_id)
+            except ValueError:
+                session.clear()
+                flash("Session expired. Please log in again.", "error")
+                return redirect(url_for("login"))
 
         first_response = getOutput(userId=session["userId"], userInput="None")
-        first_inventory = all_global_vars.get_player_character(user_id).get_inventory()
-        first_items = all_global_vars.get_player_character(session["userId"]).get_room_array().list_items()
+        player_char = all_global_vars.get_player_character(user_id)
+        first_inventory = player_char.get_inventory()
+        first_items = player_char.get_room_array().list_items(session["userId"])
+        first_stats = _build_stats(player_char)
     else:
         first_response = "Please log in."
         first_inventory = []
         first_items = []
+        first_stats = {}
 
     return render_template(
         "gameloop.html",
@@ -149,6 +157,7 @@ def home():
         username=username,
         first_inventory=first_inventory,
         first_items=first_items,
+        first_stats=first_stats,
     )
 
 

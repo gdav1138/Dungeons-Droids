@@ -62,6 +62,9 @@ def _get_wall_style(theme_lower, interior_type):
 
 def draw_stone_wall(draw, x1, y1, x2, y2, base_color, accent_color):
     """Draw a textured stone wall."""
+    x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return
     draw.rectangle([x1, y1, x2, y2], fill=base_color, outline=accent_color, width=2)
     for i in range(int((x2 - x1) / 40)):
         for j in range(int((y2 - y1) / 40)):
@@ -72,6 +75,9 @@ def draw_stone_wall(draw, x1, y1, x2, y2, base_color, accent_color):
 
 def draw_metal_wall(draw, x1, y1, x2, y2, base_color, accent_color):
     """Draw a sci-fi metal panel wall with rivets and neon trim."""
+    x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return
     draw.rectangle([x1, y1, x2, y2], fill=base_color, outline=accent_color, width=2)
     w, h = max(1, x2 - x1), max(1, y2 - y1)
     panel_w = max(20, w // 4)
@@ -88,6 +94,9 @@ def draw_metal_wall(draw, x1, y1, x2, y2, base_color, accent_color):
 
 def draw_copper_wall(draw, x1, y1, x2, y2, base_color, accent_color):
     """Draw a steampunk copper/wood wall with bolts."""
+    x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return
     draw.rectangle([x1, y1, x2, y2], fill=base_color, outline=accent_color, width=2)
     h = max(1, y2 - y1)
     plank_h = max(12, h // 4)
@@ -102,6 +111,9 @@ def draw_copper_wall(draw, x1, y1, x2, y2, base_color, accent_color):
 
 def draw_cave_wall(draw, x1, y1, x2, y2, base_color, accent_color):
     """Draw rough, organic cave/crypt walls."""
+    x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return
     draw.rectangle([x1, y1, x2, y2], fill='#1a1510', outline='#2a2018', width=2)
     area = max(1, (x2 - x1) * (y2 - y1))
     for _ in range(max(1, area // 300)):
@@ -233,6 +245,9 @@ def _draw_bookshelf(draw, x, y, w, h, color, vertical=False):
 
 def _draw_shelf_with_bottles(draw, x1, y1, x2, y2, color):
     """Draw a shelf holding potion bottles."""
+    x1, y1, x2, y2 = min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+    if x2 - x1 < 1 or y2 - y1 < 1:
+        return
     draw.rectangle([x1, y1, x2, y2], fill=color, outline='#3a3a3a', width=2)
     flask_colors = ['#2a6a8a', '#8a2a2a', '#2a8a2a', '#8a8a2a', '#6a2a8a']
     for i, fc in enumerate(flask_colors):
@@ -512,7 +527,7 @@ def _interior_laboratory(draw, margin, width, height, color, theme):
                 # Bubble
                 draw.ellipse([wx + 30, ey + 3, wx + 38, ey + 11], fill='#3a8aaa')
     # North shelf with bottles
-    _draw_shelf_with_bottles(draw, margin + wt + 30, margin + wt + 8, width - margin - wt - 30, 32, lab_color)
+    _draw_shelf_with_bottles(draw, margin + wt + 30, margin + wt + 8, width - margin - wt - 30, margin + wt + 32, lab_color)
     # Alchemy circle on floor
     for r in [50, 35, 20]:
         draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=None, outline='#4a8a5a', width=1)
@@ -817,15 +832,6 @@ def generate_room_map(room_holder, theme_era="Medieval", userId=None):
     has_south = exits_map['south']
     has_east  = exits_map['east']
     has_west  = exits_map['west']
-        'east': bool(cur_x + 1 < cols and room_array[cur_y][cur_x + 1] is not None),
-        'west': bool(cur_x - 1 >= 0 and room_array[cur_y][cur_x - 1] is not None),
-    }
-    # exits_map = {
-    #     'north': bool(cols > cur_y + 1 and room_array[cur_y + 1][cur_x] is not None),
-    #     'south': bool(cur_y > 0 and room_array[cur_y - 1][cur_x] is not None),
-    #     'east': bool(rows > cur_x + 1 and room_array[cur_y][cur_x + 1] is not None),
-    #     'west': bool(cur_x > 0 and room_array[cur_y][cur_x - 1] is not None),
-    # }
 
     # ── FLOOR ─────────────────────────────────────────────────────────────────
     for y in range(margin, height - margin, tile_size):

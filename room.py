@@ -641,7 +641,6 @@ class room_holder:
         cur_y = self._cur_pos_y
 
         if self._cols > cur_x + 1:
-        if self._rows > cur_x + 1:
             next_room = self.get_room(userId, cur_x + 1, cur_y)  # Updating room logic to check/generate rooms
             if next_room is None:
                 return "Can't move that way!"
