@@ -810,7 +810,6 @@ def generate_room_map(room_holder, theme_era="Medieval", userId=None):
     exits_map = {
         'north': bool(cur_y + 1 < rows and room_array[cur_y + 1][cur_x] is not None),
         'south': bool(cur_y - 1 >= 0 and room_array[cur_y - 1][cur_x] is not None),
-<<<<<<< mikebranch
         'east':  bool(cur_x + 1 < cols and room_array[cur_y][cur_x + 1] is not None),
         'west':  bool(cur_x - 1 >= 0 and room_array[cur_y][cur_x - 1] is not None),
     }
@@ -818,7 +817,6 @@ def generate_room_map(room_holder, theme_era="Medieval", userId=None):
     has_south = exits_map['south']
     has_east  = exits_map['east']
     has_west  = exits_map['west']
-=======
         'east': bool(cur_x + 1 < cols and room_array[cur_y][cur_x + 1] is not None),
         'west': bool(cur_x - 1 >= 0 and room_array[cur_y][cur_x - 1] is not None),
     }
@@ -828,7 +826,6 @@ def generate_room_map(room_holder, theme_era="Medieval", userId=None):
     #     'east': bool(rows > cur_x + 1 and room_array[cur_y][cur_x + 1] is not None),
     #     'west': bool(cur_x > 0 and room_array[cur_y][cur_x - 1] is not None),
     # }
->>>>>>> main
 
     # ── FLOOR ─────────────────────────────────────────────────────────────────
     for y in range(margin, height - margin, tile_size):
@@ -946,3 +943,4 @@ def add_library_furniture(draw, margin, width, height, color):
 def add_room_furniture(draw, description, margin, width, height, color, theme):
     """Legacy: add furniture based on room description."""
     _interior_generic(draw, description, margin, width, height, color, theme)
+
