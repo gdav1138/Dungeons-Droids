@@ -57,7 +57,7 @@ If you have not created an account, simply enter in your desired username and pa
 Upon first login, you will be created with the character creator. Respond to the prompts to create
 your desired character.
 
-After character creation is completed, you wil be presented with a world and your character will
+After character creation is completed, you will be presented with a world and your character will
 begin their journey in their first room! Below are some commands to keep in mind while playing.
 
 ### Commands
