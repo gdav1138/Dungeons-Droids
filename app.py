@@ -146,16 +146,16 @@ def home():
             # Stale session — user no longer exists in DB
             session.clear()
             return redirect(url_for("login"))
-    else:
-        first_response = "Please log in."
+        else:
+            first_response = "Please log in."
 
     player_char = all_global_vars.get_player_character(user_id) if user_id else None
         if not all_global_vars.has_userId(user_id):
             InitializeStartUp(user_id)
 
         first_response = getOutput(userId=session["userId"], userInput="None")
-    else:
-        first_response = "Please log in."
+        else:
+            first_response = "Please log in."
 
     return render_template(
         "gameloop.html",
@@ -191,4 +191,5 @@ def home():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
