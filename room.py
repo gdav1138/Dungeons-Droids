@@ -53,8 +53,6 @@ class Room:
               "pos:", self._room_pos_x, self._room_pos_y,
               "factory:", self._npc_factory)
 
-<<<<<<< mikebranch
-=======
     def get_npc(self):
         if self._npc is not None:
             return self._npc
@@ -83,7 +81,6 @@ class Room:
               "pos:", self._room_pos_x, self._room_pos_y,
               "factory:", self._npc_factory)
 
->>>>>>> main
         # Generate NPC for room
         if npc is None:
             if self._npc_factory is None:
@@ -224,12 +221,9 @@ class Room:
             "map": self._map_html,
             "x": self._room_pos_x,
             "y": self._room_pos_y,
-<<<<<<< mikebranch
             "items": self._items,
             "identity": self._room_identity,
-=======
             "items": self._items
->>>>>>> main
         }
 
         result = room_collection.insert_one(room_doc)
@@ -257,7 +251,6 @@ class room_holder:
         self._cur_pos_x = 0
         self._cur_pos_y = 0
         self._npc_factory = None
-<<<<<<< mikebranch
 
     def configure_grid(self, rows, cols):
         self._rows = max(2, int(rows))
@@ -271,9 +264,6 @@ class room_holder:
         min_rooms = max(1, min(int(min_rooms), max_cells))
         max_rooms = max(min_rooms, min(int(max_rooms), max_cells))
         target_rooms = random.randint(min_rooms, max_rooms)
-=======
->>>>>>> main
-
         start_x = max(0, min(int(start_x), self._cols - 1))
         start_y = max(0, min(int(start_y), self._rows - 1))
 
@@ -314,7 +304,6 @@ class room_holder:
         return room.store_room()
 
     def get_room(self, userId, x, y):
-<<<<<<< mikebranch
         if x < 0 or x >= self._cols or y < 0 or y >= self._rows:
             return None
 
@@ -327,7 +316,6 @@ class room_holder:
         player = all_global_vars.get_player_character(userId)
         room_id = player.get_room_id_at(x,y)
 
-=======
         if y < 0 or y >= self._rows or x < 0 or x >= self._cols:
             return None
 
@@ -340,7 +328,6 @@ class room_holder:
         player = all_global_vars.get_player_character(userId)
         room_id = player.get_room_id_at(x,y)
 
->>>>>>> main
         if room_id is None:
             return None
 
@@ -356,10 +343,7 @@ class room_holder:
         r._description = room_doc.get("description")
         r._items = room_doc.get("items") or []
         r._seed = room_doc.get("seed")
-<<<<<<< mikebranch
         r._room_identity = room_doc.get("identity")
-=======
->>>>>>> main
         r._npc_id = room_doc.get("_npc_id")
         r._npc = None
 
@@ -564,7 +548,6 @@ class room_holder:
             return "There is no NPC here."
         return self.get_current_room(userId).get_npc().allow_pass(userId)
 
-<<<<<<< mikebranch
     def move_current_room_npc(self, userId, direction=None):
         cur_room = self.get_current_room(userId)
         if cur_room is None:
@@ -624,8 +607,6 @@ class room_holder:
         npc_name = npc.get_name() or "The NPC"
         return True, f"{npc_name} moved {dir_name}."
 
-=======
->>>>>>> main
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
@@ -659,11 +640,8 @@ class room_holder:
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
 
-<<<<<<< mikebranch
         if self._cols > cur_x + 1:
-=======
         if self._rows > cur_x + 1:
->>>>>>> main
             next_room = self.get_room(userId, cur_x + 1, cur_y)  # Updating room logic to check/generate rooms
             if next_room is None:
                 return "Can't move that way!"
