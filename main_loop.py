@@ -4,6 +4,8 @@
 # examples.
 
 from all_global_vars import all_global_vars
+from humanoid import Npc
+import hello
 
 
 def _format_inventory(inv_list):
@@ -20,18 +22,18 @@ def _brief_room_view(room_array, userId):
     # Generate/refresh map and minimap
     room_array.get_full_description(userId)
 
-    cur_room = room_array.get_current_room()
+    cur_room = room_array.get_current_room(userId)
     parts = []
     if cur_room and getattr(cur_room, "_map_html", None):
         parts.append(cur_room._map_html)
 
     try:
-        world = room_array.render_minimap()
+        world = room_array.render_minimap(userId)
         parts.append(f'<div data-role="worldmap">{world}</div>')
     except Exception:
         pass
 
-    items = room_array.list_items() if hasattr(room_array, "list_items") else []
+    items = room_array.list_items(userId) if hasattr(room_array, "list_items") else []
 
     def _iname(it):
         if isinstance(it, dict):
@@ -50,18 +52,19 @@ def do_main_loop(userInput, userId):
     userInput = userInput.lower()
     # Handle empty/None input by showing current room
     if userInput == "none" or userInput == "":
-        return all_global_vars.get_room_holder(userId).get_full_description(
+        return all_global_vars.get_player_character(userId).get_room_array().get_full_description(
             userId
         )
     if userInput == "restart":
-        all_global_vars.set_section(userId, "Restart")
-        return "Restarting Game. Type in anything to continue."
+        print("userInput == restart")
+        return hello.restart_game(userId)
     if userInput == 'help':
         return (
             "Valid Commands:<BR>Restart - Restarts the game<BR>"
             + "Help - this menu<BR>"
             + "north, south, east, west - Move to a new location<BR>"
             + "describe npc - describes the npc in the room<BR>"
+            + "move npc [north|south|east|west] - tell the NPC to move (omit direction for random)<BR>"
             + "inventory (i) - show your items<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
@@ -82,17 +85,25 @@ def do_main_loop(userInput, userId):
             item = userInput[len(prefix):].strip()
             if not item:
                 return "Specify what to pick up.<BR>"
-            success, info = room_array.pickup_item(item, player_char)
+            success, info = room_array.pickup_item(userId, item, player_char)
             if success:
+                # Check if item is a coin — add value to gold instead of keeping in inventory
+                picked = player_char.get_inventory()[-1] if player_char.get_inventory() else None
+                _COIN_NAMES = {"bronze coin", "silver coin", "gold coin", "coin", "credits chip", "cog token"}
+                if picked and isinstance(picked, dict) and picked.get("name", "").lower() in _COIN_NAMES:
+                    player_char.remove_item(picked.get("name"))
+                    player_char.add_gold(picked.get("value", 1))
+                    gold_msg = f"You picked up {info} (+{picked.get('value', 1)} gold).<BR>"
+                else:
+                    gold_msg = f"You picked up {info}.<BR>"
                 room_array.persist_room(userId, player_char)
                 from user_db import get_user_by_id
-
                 user_doc = get_user_by_id(userId)
                 char_id = user_doc.get("_player_character_id") if user_doc else None
                 if char_id:
                     player_char.update_player_character(char_id)
                 refreshed = _brief_room_view(room_array, userId)
-                return f"You picked up {info}.<BR>{refreshed}"
+                return gold_msg + refreshed
             return info + "<BR>"
 
     # Drop
@@ -100,7 +111,7 @@ def do_main_loop(userInput, userId):
         item = userInput[len("drop "):].strip()
         if not item:
             return "Specify what to drop.<BR>"
-        success, info = room_array.drop_item(item, player_char)
+        success, info = room_array.drop_item(userId, item, player_char)
         if success:
             room_array.persist_room(userId, player_char)
             from user_db import get_user_by_id
@@ -115,24 +126,88 @@ def do_main_loop(userInput, userId):
     if userInput == 'look':
         return room_array.get_full_description(userId)
     if userInput == 'north':
-        response = room_array.move_north(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_north(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
     if userInput == 'south':
-        response = room_array.move_south(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_south(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
     if userInput == 'east':
-        response = room_array.move_east(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_east(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
     if userInput == 'west':
-        response = room_array.move_west(userId)
-        room_array.persist_room(userId, all_global_vars.get_player_character(userId))
-        return response
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_west(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
     if userInput == "describe npc":
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
         return room_array.talk_to_npc(userId, userInput[3:])
+    if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
+        direction = None
+        if userInput.startswith("move npc"):
+            direction_text = userInput[len("move npc"):].strip()
+            if direction_text:
+                direction = direction_text
+        else:
+            direction_text = userInput[len("tell npc to move"):].strip()
+            if direction_text:
+                direction = direction_text
+
+        if direction and direction not in ("north", "south", "east", "west"):
+            return "Use: move npc [north|south|east|west]<BR>"
+
+        moved, message = room_array.move_current_room_npc(userId, direction=direction)
+        if moved:
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return message + "<BR>"
+    if userInput.startswith("version"):
+        return all_global_vars.get_version(userId)
     
     return "Invalid input. Type help for options."
+
+def check_direction_for_npc(userId, room_array):
+    print("1")
+    print("room_array: ", room_array)
+    print("2")
+    try:
+        can_pass = room_array.check_pass_npc(userId)
+    except Exception as e:
+        print("ERROR in check_pass_npc:", repr(e))
+        raise
+    #can_pass = room_array.check_pass_npc(userId)
+    print("Can pass: " + str(can_pass))
+    if can_pass:
+        return True, "The NPC lets you exit the room"
+    else:
+        return False, "The NPC blocks your exit"

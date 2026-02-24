@@ -5,3 +5,4 @@ pymongo
 bcrypt
 google-genai
 pillow
+pytest>=7.0.0

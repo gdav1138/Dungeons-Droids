@@ -16,6 +16,13 @@
     #map { flex: 1; overflow: auto; }
     #generated { flex: 1; overflow: auto; }
     #map img, #generated img { max-width: 100%; height: auto; display: block; }
+    .stats-bar { display: flex; gap: 24px; padding: 8px 12px; border: 1px solid #333; border-radius: 6px; background: #0d0d0d; margin-top: 10px; font-size: 13px; color: #ccc; }
+    .stat-item { display: flex; gap: 6px; align-items: center; }
+    .stat-label { color: #888; }
+    .stat-value { color: #eee; font-weight: bold; }
+    .stat-gold .stat-value { color: #f5c842; }
+    .stat-hp .stat-value { color: #e05c5c; }
+    .stat-xp .stat-value { color: #7ecfaa; }
     .inventory-panel { margin-top: 12px; }
     #inventory { min-height: 48px; display: flex; flex-wrap: wrap; gap: 8px; }
     .inv-card { border: 1px solid #444; padding: 6px 8px; border-radius: 6px; background: #161616; min-width: 160px; max-width: 220px; }
@@ -23,15 +30,26 @@
     .inv-meta { color: #8ad; font-size: 12px; }
     .inv-desc { color: #bbb; font-size: 12px; margin-top: 4px; }
     h3 { margin: 0 0 8px 0; color: #bbb; font-weight: normal; }
-    form { margin-top: 12px; }
-    input[type=text] { width: 80%; padding: 8px; }
-    button { padding: 8px; }
+    .command-row { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+    .command-row form { flex: 1; display: flex; gap: 6px; }
+    input[type=text] { flex: 1; padding: 8px; }
+    button[type=submit] { padding: 8px 14px; }
+    .compass { display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 34px); gap: 3px; flex-shrink: 0; }
+    .compass-btn { display: flex; align-items: center; justify-content: center; background: #1a1a1a; border: 1px solid #444; color: #aaa; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; width: 34px; height: 34px; transition: background 0.15s, color 0.15s; }
+    .compass-btn:hover { background: #2a2a2a; color: #fff; border-color: #666; }
+    .compass-btn.north { color: #6f6; border-color: #3a5a3a; }
+    .compass-center { display: flex; align-items: center; justify-content: center; }
+    .compass-pip { width: 8px; height: 8px; background: #444; border-radius: 50%; }
+    .compass-empty { width: 34px; height: 34px; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="username">Logged in as: {{ username }}</div>
-    <a href="/logout" class="logout-btn">Logout</a>
+    <div style="display:flex; gap:8px;">
+      <button class="logout-btn" id="restartBtn">Restart</button>
+      <a href="/logout" class="logout-btn">Logout</a>
+    </div>
   </div>
 
   <div class="layout">
@@ -45,16 +63,52 @@
         <div id="map"></div>
       </div>
       <div class="panel">
-        <h3>GENERATED</h3>
+        <h3 id="room-name">ROOM</h3>
         <div id="generated"></div>
       </div>
     </div>
   </div>
 
-  <form id="commandForm" onsubmit="return false;">
-    <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
-    <button type="submit">Send</button>
-  </form>
+  <div class="command-row">
+    <form id="commandForm" onsubmit="return false;">
+      <input type="text" id="command" name="command" placeholder="Enter command..." autofocus />
+      <button type="submit">Send</button>
+    </form>
+    <div class="compass">
+      <div class="compass-empty"></div>
+      <button class="compass-btn north" data-dir="north" title="Go North">N</button>
+      <div class="compass-empty"></div>
+      <button class="compass-btn" data-dir="west" title="Go West">W</button>
+      <div class="compass-center"><div class="compass-pip"></div></div>
+      <button class="compass-btn" data-dir="east" title="Go East">E</button>
+      <div class="compass-empty"></div>
+      <button class="compass-btn" data-dir="south" title="Go South">S</button>
+      <div class="compass-empty"></div>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-item">
+      <span class="stat-label">Name</span>
+      <span class="stat-value" id="stat-name">—</span>
+    </div>
+    <div class="stat-item stat-hp">
+      <span class="stat-label">HP</span>
+      <span class="stat-value" id="stat-hp">100</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Level</span>
+      <span class="stat-value" id="stat-level">1</span>
+    </div>
+    <div class="stat-item stat-xp">
+      <span class="stat-label">XP</span>
+      <span class="stat-value" id="stat-xp">0</span>
+    </div>
+    <div class="stat-item stat-gold">
+      <span class="stat-label" id="stat-currency-label">Gold</span>
+      <span class="stat-value" id="stat-gold">0</span>
+    </div>
+  </div>
 
   <div class="panel inventory-panel">
     <h3>INVENTORY</h3>
@@ -67,6 +121,16 @@
     const generatedDiv = document.getElementById('generated');
     const form = document.getElementById('commandForm');
     const inventoryDiv = document.getElementById('inventory');
+
+    const renderStats = (stats) => {
+      if (!stats) return;
+      if (stats.name) document.getElementById('stat-name').textContent = stats.name;
+      document.getElementById('stat-hp').textContent = stats.hp ?? 100;
+      document.getElementById('stat-level').textContent = stats.level ?? 1;
+      document.getElementById('stat-xp').textContent = stats.xp ?? 0;
+      document.getElementById('stat-gold').textContent = stats.gold ?? 0;
+      if (stats.currency) document.getElementById('stat-currency-label').textContent = stats.currency;
+    };
 
     const renderInventory = (items) => {
       const list = Array.isArray(items) ? items : [];
@@ -125,6 +189,7 @@
     // Append the initial response from Flask
     const firstResponse = {{ first_response | tojson }};
     const firstInventory = {{ first_inventory | tojson }};
+    const firstStats = {{ first_stats | tojson }};
     {% if first_map is defined %}
     const firstMap = {{ first_map | tojson }};
     if (firstMap && firstMap !== "None") {
@@ -135,23 +200,17 @@
       renderResponse(firstResponse);
     }
     renderInventory(firstInventory);
+    renderStats(firstStats);
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const command = document.getElementById('command').value.trim();
-      if (!command) return;
-
-      document.getElementById('command').value = '';
+    async function sendCommand(command) {
       logDiv.innerHTML += `<div style="color:#6f6;">> ${command}</div>`;
       logDiv.scrollTop = logDiv.scrollHeight;
-
       try {
         const response = await fetch('/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ command })
         });
-
         let data;
         try {
           data = await response.json();
@@ -159,12 +218,31 @@
           const text = await response.text();
           throw new Error(`Server response was not JSON. Status ${response.status}. Body: ${text.slice(0, 200)}`);
         }
-
         renderResponse(data.response);
         if (data.map) { mapDiv.innerHTML = data.map; }
         if (data.inventory) { renderInventory(data.inventory); }
+        if (data.stats) { renderStats(data.stats); }
+        if (data.room_name) { document.getElementById('room-name').textContent = data.room_name; }
       } catch (err) {
         logDiv.innerHTML += `<div style="color:red;">Error: ${err}</div>`;
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const command = document.getElementById('command').value.trim();
+      if (!command) return;
+      document.getElementById('command').value = '';
+      await sendCommand(command);
+    });
+
+    document.querySelectorAll('.compass-btn').forEach(btn => {
+      btn.addEventListener('click', () => sendCommand(btn.dataset.dir));
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      if (confirm('Restart your game? This will reset your progress.')) {
+        sendCommand('restart');
       }
     });
   </script>

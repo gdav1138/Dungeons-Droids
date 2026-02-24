@@ -1,9 +1,10 @@
 # Main flask application. Handles sessions, routing, and OpenAI communication
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, flash
-from hello import getOutput, initializeStartUp
+from hello import getOutput, InitializeStartUp
 from user_db import register_user, authenticate_user, get_user_by_username
 from all_global_vars import all_global_vars
 import uuid
+import traceback
 
 # This file loads up Flask to serve web pages at the root / directory.
 # Every time the client connects, it gets the variables from the web browser (input)
@@ -12,17 +13,39 @@ app = Flask(__name__)
 app.secret_key = "dungeons_and_droids_key"
 
 
+def _currency_name(theme):
+    t = (theme or "").lower()
+    if "cyber" in t or "sci" in t:
+        return "Credits"
+    if "steam" in t:
+        return "Cogs"
+    return "Gold"
+
+
+def _build_stats(player_char):
+    theme = player_char.get_theme() if player_char else None
+    name = getattr(player_char, "_name", None) if player_char else None
+    return {
+        "hp": getattr(player_char, "_health", 100),
+        "level": getattr(player_char, "_level", 1),
+        "xp": getattr(player_char, "_exp", 0),
+        "gold": getattr(player_char, "_gold", 0),
+        "currency": _currency_name(theme),
+        "name": name or "",
+    }
+
+
 @app.route('/login', methods=["GET", "POST"])
 def login():
     """Login page - handles both GET (display form) and POST (process login)"""
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        
+
         if not username or not password:
             flash("Please provide both username and password", "error")
             return render_template("login.html")
-        
+
         user_id = authenticate_user(username, password)
         if user_id:
             session["userId"] = user_id
@@ -32,11 +55,11 @@ def login():
         else:
             flash("Invalid username or password", "error")
             return render_template("login.html")
-    
+
     # If already logged in, redirect to home
     if "userId" in session:
         return redirect(url_for("home"))
-    
+
     return render_template("login.html")
 
 
@@ -45,15 +68,15 @@ def register():
     """Handle user registration"""
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-    
+
     if not username or not password:
         flash("Please provide both username and password", "error")
         return render_template("login.html")
-    
+
     if len(password) < 4:
         flash("Password must be at least 4 characters long", "error")
         return render_template("login.html")
-    
+
     user_id = register_user(username, password)
     if user_id:
         session["userId"] = user_id
@@ -80,22 +103,58 @@ def home():
         if request.method == "POST":
             return jsonify({"error": "Not authenticated"}), 401
         return redirect(url_for("login"))
-    
+
     if request.method == "POST":
         try:
             print("In POST")
+            user_id = session.get("userId")
+            if user_id and not all_global_vars.has_userId(user_id):
+                InitializeStartUp(user_id)
             data = request.get_json(force=True)
             userInput = data.get("command", "").strip()
             response_text = getOutput(userId=session["userId"], userInput=userInput)
             player_char = all_global_vars.get_player_character(session["userId"])
-            items_here = all_global_vars.get_room_holder(session["userId"]).list_items()
+            items_here = (all_global_vars.get_player_character(session["userId"]).
+                          get_room_array().list_items(session["userId"]))
+            cur_room = player_char.get_room_array().get_current_room(session["userId"])
+            room_name = getattr(cur_room, "_room_identity", None) or "Unknown Room"
             return jsonify({
                 "response": response_text,
                 "inventory": player_char.get_inventory(),
                 "items_here": items_here,
+                "stats": _build_stats(player_char),
+                "room_name": room_name,
             })
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            traceback.print_exc()
+            return jsonify({"response": f"Server error: {str(e)}"}), 500
+        # Include a fresh minimap with every response
+        rooms = all_global_vars.get_player_character(session["userId"]).get_room_array()
+        map_html = rooms.render_minimap()
+        return jsonify({"response": response_text, "map": map_html})
+
+    user_id = session.get("userId")
+    username = session.get("username", "User")
+    if user_id:
+        try:
+            if not all_global_vars.has_userId(user_id):
+                InitializeStartUp(user_id)
+            first_response = getOutput(userId=session["userId"], userInput="None")
+        except ValueError:
+            # Stale session — user no longer exists in DB
+            session.clear()
+            return redirect(url_for("login"))
+    else:
+        first_response = "Please log in."
+
+    player_char = all_global_vars.get_player_character(user_id) if user_id else None
+    return render_template(
+        "gameloop.html",
+        first_response=first_response,
+        username=username,
+        first_inventory=[],
+        first_stats=_build_stats(player_char),
+    )
 
     user_id = session.get("userId")
     username = session.get("username", "User")
@@ -105,7 +164,7 @@ def home():
 
         first_response = getOutput(userId=session["userId"], userInput="None")
         first_inventory = all_global_vars.get_player_character(user_id).get_inventory()
-        first_items = all_global_vars.get_room_holder(user_id).list_items()
+        first_items = all_global_vars.get_player_character(session["userId"]).get_room_array().list_items()
     else:
         first_response = "Please log in."
         first_inventory = []
