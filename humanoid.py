@@ -475,7 +475,7 @@ class Npc(Humanoid):
         call_string = "Based on the conversation: "
         for line in self._past_conversation:
             call_string += line + " "
-        call_string += f"And the player wants to go past the npc with friendlynes {self._friendlyness} out of 100"
+        call_string += f"And the player wants to go past the npc with friendliness {self._friendlyness} out of 100"
         call_string += (" Do you allow the player to pass? Don't let them pass unless they've had a good" +
                         " conversation with you, or if you've said they could pass it's okay. Don't be too" +
                         " difficult to get past, be simple. Answer with one word, yes or no")
