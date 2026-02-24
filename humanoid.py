@@ -310,15 +310,15 @@ class PlayerCharacter(Humanoid):
 
         return returning_character
 
-    def update_char(self, userId, updates):
+    def update_char(self, charId, updates):
         """
-        Updates a user doc with the given updates.
+        Updates a character doc with the given updates.
         """
-        query_filter = {"_id": userId}
+        query_filter = {"_id": charId}
         update_operation = {"$set": updates}
 
         result = char_collection.update_one(query_filter, update_operation)
-        print(f"User {userId} update result: {result.modified_count} modified")
+        print(f"Character {charId} update result: {result.modified_count} modified")
         return result
 
     @classmethod
