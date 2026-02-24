@@ -71,7 +71,6 @@ def doSectionStarting(userId):
         "Don't give any instructions to the user."
     )
     client_response += "<BR>"
-<<<<<<< mikebranch
 
     client_response += ("Choose your world:<BR>"
                         "1. <strong>Medieval</strong> — stone dungeons, swords, sorcery<BR>"
@@ -80,7 +79,6 @@ def doSectionStarting(userId):
                         "<BR>Type 1, 2, or 3:<BR>")
 
     all_global_vars.get_player_character(userId).set_section(section="GetPlayerTheme")
-=======
 
     new_theme = call_ai(
         "Pick an theme for this game to take place in. Make the answer very short, "
@@ -92,7 +90,6 @@ def doSectionStarting(userId):
 
     all_global_vars.get_player_character(userId).set_section(section="GetPlayerName")
     all_global_vars.get_player_character(userId).set_theme(new_theme)
->>>>>>> main
 
     return client_response
 
@@ -237,7 +234,6 @@ def doGetPlayerIntelligence(userInput, userId):
         return "Please enter a valid number for Intelligence.<BR>"
     except Exception as e:
         return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
-<<<<<<< mikebranch
 
 
 def doGetPlayerDexterity(userInput, userId):
@@ -348,7 +344,6 @@ def doGetPlayerConstitution(userInput, userId):
                 f"Total: {total} points<BR><BR>"
                 f"Type <strong>yes</strong> to confirm, or <strong>no</strong> to change your stats:<BR>")
     except ValueError:
-=======
 
 
 def doGetPlayerDexterity(userInput, userId):
@@ -459,7 +454,6 @@ def doGetPlayerConstitution(userInput, userId):
                 f"Total: {total} points<BR><BR>"
                 f"Type <strong>yes</strong> to confirm, or <strong>no</strong> to change your stats:<BR>")
     except ValueError:
->>>>>>> main
         return "Please enter a valid number for Constitution.<BR>"
     except Exception as e:
         return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
@@ -475,7 +469,6 @@ def doConfirmPlayerStats(userInput, userId):
         rooms = all_global_vars.get_player_character(userId).get_room_array()
         rooms.set_npc_factory(lambda uid: Npc(uid))
 
-<<<<<<< mikebranch
         # Build a randomized connected dungeon each run.
         # Size and density depend on the selected world theme.
         character = all_global_vars.get_player_character(userId)
@@ -538,7 +531,6 @@ def doConfirmPlayerStats(userInput, userId):
             character.update_world_map(room_id, x, y)
 
         cur_room = rooms.get_room(userId, start_x, start_y)
-=======
         # Generate a maze of rooms with a clear path
         # Create a simple branching dungeon structure
         room_id = rooms.add_empty_room(0, 0)  # Starting room
@@ -563,7 +555,6 @@ def doConfirmPlayerStats(userInput, userId):
         all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 1)
 
         cur_room = rooms.get_room(userId, 0, 0)
->>>>>>> main
         cur_room.generate_description(userId, npc=Npc(userId))
 
         # Update player state for session
