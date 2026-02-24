@@ -12,11 +12,15 @@ from bson.objectid import ObjectId
 import user_db
 from humanoid import PlayerCharacter, Npc
 import os
+import random
 from room import room_holder, Room
 
 
 def InitializeStartUp(userId):
     user_doc = user_db.get_user_by_id(userId)
+
+    if user_doc is None:
+        raise ValueError(f"User {userId} not found in database. Session may be stale.")
 
     if user_doc["_player_character_id"] is None:
         print("No character set for current user. Creating Character...")
@@ -68,18 +72,36 @@ def doSectionStarting(userId):
     )
     client_response += "<BR>"
 
-    new_theme = call_ai(
-        "Pick an theme for this game to take place in. Make the answer very short, "
-        "just a word or two, like medieval or sci-fi, but be creative"
-    )
+    client_response += ("Choose your world:<BR>"
+                        "1. <strong>Medieval</strong> — stone dungeons, swords, sorcery<BR>"
+                        "2. <strong>Steampunk</strong> — brass gears, steam power, industry<BR>"
+                        "3. <strong>Cyberpunk</strong> — neon cities, hackers, cybernetics<BR>"
+                        "<BR>Type 1, 2, or 3:<BR>")
 
-    client_response += "This game takes place in the " + new_theme + " era. <BR>"
-    client_response += "What should we call your character?<BR>"
-
-    all_global_vars.get_player_character(userId).set_section(section="GetPlayerName")
-    all_global_vars.get_player_character(userId).set_theme(new_theme)
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerTheme")
 
     return client_response
+
+
+def doGetPlayerTheme(userInput, userId):
+    """Handles genre selection. Stores theme and moves to name input."""
+    _THEMES = {"1": "Medieval", "2": "Steampunk", "3": "Cyberpunk"}
+    choice = userInput.strip()
+
+    # Accept number or typed name
+    if choice in _THEMES:
+        new_theme = _THEMES[choice]
+    elif choice.lower() in ("medieval", "steampunk", "cyberpunk"):
+        new_theme = _THEMES[{"medieval": "1", "steampunk": "2", "cyberpunk": "3"}[choice.lower()]]
+    else:
+        return ("Please type 1, 2, or 3 to choose your world:<BR>"
+                "1. <strong>Medieval</strong><BR>"
+                "2. <strong>Steampunk</strong><BR>"
+                "3. <strong>Cyberpunk</strong><BR>")
+
+    all_global_vars.get_player_character(userId).set_theme(new_theme)
+    all_global_vars.get_player_character(userId).set_section(section="GetPlayerName")
+    return f"You chose <strong>{new_theme}</strong>.<BR>What should we call your character?<BR>"
 
 
 def doGetPlayerName(userInput, userId):
@@ -326,30 +348,68 @@ def doConfirmPlayerStats(userInput, userId):
         rooms = all_global_vars.get_player_character(userId).get_room_array()
         rooms.set_npc_factory(lambda uid: Npc(uid))
 
-        # Generate a maze of rooms with a clear path
-        # Create a simple branching dungeon structure
-        room_id = rooms.add_empty_room(0, 0)  # Starting room
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 0)
+        # Build a randomized connected dungeon each run.
+        # Size and density depend on the selected world theme.
+        character = all_global_vars.get_player_character(userId)
+        theme_text = (character.get_theme() or "").lower()
 
-        room_id = rooms.add_empty_room(0, 1)  # North
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 1)
+        if "cyber" in theme_text or "sci" in theme_text:
+            rows = random.randint(5, 8)
+            cols = random.randint(5, 8)
+            min_rooms = 10
+            max_rooms = 24
+            identity_pool = [
+                "Neon Bazaar", "Data Vault", "Transit Platform", "Server Spine",
+                "Drone Dock", "Synth Clinic", "Signal Relay", "Augment Market",
+                "Holo Arcade", "Security Node", "Circuit Shrine", "Rust Yard",
+            ]
+        elif "steam" in theme_text:
+            rows = random.randint(4, 7)
+            cols = random.randint(5, 8)
+            min_rooms = 9
+            max_rooms = 20
+            identity_pool = [
+                "Boiler Hall", "Cog Workshop", "Brass Gallery", "Aether Lab",
+                "Valve Junction", "Clockwork Chapel", "Canal Lift", "Foundry Nook",
+                "Pressure Vault", "Engine Atrium", "Copper Archive", "Steam Conservatory",
+            ]
+        else:
+            rows = random.randint(4, 7)
+            cols = random.randint(4, 7)
+            min_rooms = 8
+            max_rooms = 18
+            identity_pool = [
+                "Forgotten Crypt", "Stone Chapel", "Bandit Storehouse", "Flooded Grotto",
+                "Ancient Library", "Watch Barracks", "Ritual Chamber", "Mossy Hall",
+                "Collapsed Tunnel", "Hidden Armory", "Moonlit Cloister", "Root Cellar",
+            ]
 
-        room_id = rooms.add_empty_room(1, 1)  # East from north
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 1)
+        rooms.configure_grid(rows=rows, cols=cols)
 
-        room_id = rooms.add_empty_room(0, 2)  # North again
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 0, 2)
+        start_x = random.randint(0, cols - 1)
+        start_y = random.randint(0, rows - 1)
+        room_coords = rooms.generate_random_connected_room_coords(
+            min_rooms=min(min_rooms, rows * cols),
+            max_rooms=min(max_rooms, rows * cols),
+            start_x=start_x,
+            start_y=start_y,
+        )
 
-        room_id = rooms.add_empty_room(1, 0)  # East from start
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 1, 0)
+        character._world_map = []
 
-        room_id = rooms.add_empty_room(2, 0)  # East again
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 0)
+        shuffled_identities = identity_pool[:]
+        random.shuffle(shuffled_identities)
 
-        room_id = rooms.add_empty_room(2, 1)  # North from east path
-        all_global_vars.get_player_character(userId).update_world_map(room_id, 2, 1)
+        for idx, (x, y) in enumerate(room_coords):
+            if idx < len(shuffled_identities):
+                room_identity = shuffled_identities[idx]
+            else:
+                room_identity = f"{random.choice(identity_pool)} Annex {idx - len(shuffled_identities) + 1}"
 
-        cur_room = rooms.get_room(userId, 0, 0)
+            room_id = rooms.add_empty_room(x, y, room_identity=room_identity)
+            character.update_world_map(room_id, x, y)
+
+        cur_room = rooms.get_room(userId, start_x, start_y)
         cur_room.generate_description(userId, npc=Npc(userId))
 
         # Update player state for session
@@ -401,6 +461,8 @@ def getOutput(userInput, userId):
         if cur_section == "Starting":
             print("Calling doStarting")
             return doSectionStarting(userId)
+        if cur_section == "GetPlayerTheme":
+            return doGetPlayerTheme(userInput, userId)
         if cur_section == "GetPlayerName":
             print("Calling getplayerName")
             return doGetPlayerName(userInput, userId)

@@ -23,6 +23,7 @@ class Room:
         self._room_pos_x = x_cord
         self._room_pos_y = y_cord
         self._items = []
+        self._room_identity = None
 
     def get_npc(self):
         if self._npc is not None:
@@ -75,6 +76,9 @@ class Room:
                         + " for a character named "
                         + all_global_vars.get_player_character(userId).get_name()
                         + ". Don't list any exits or items or anything other than a description of a location.")
+        if getattr(self, "_room_identity", None):
+            setup_string += (" The room archetype is " + self._room_identity +
+                             ". Make this location feel visually distinct from other rooms.")
         if self._npc is not None:
             setup_string += ("Include a mention of an NPC named " + self._npc.get_name() +
                              " and subtlely include the description " + self._npc.get_description())
@@ -89,25 +93,46 @@ class Room:
             self._seed = seed_key
         random.seed(seed_key)
 
-        base_items = [
-            ("rusty dagger", "A pitted blade with a worn leather grip."),
-            ("leather satchel", "A weathered satchel with a broken clasp."),
-            ("bronze coin", "Ancient coin, its face worn smooth."),
-            ("torch", "Wrapped in pitch-soaked cloth."),
-            ("old map", "Faded parchment with partial routes."),
-            ("copper key", "Small key etched with runes."),
-            ("medkit", "Sterile wraps and coagulant foam."),
-            ("data shard", "Encrypted storage crystal."),
-            ("plasma cell", "Hums faintly with charge."),
-            ("gear fragment", "Jagged cog from a larger machine."),
-            ("rations", "Dry but filling travel food."),
-            ("rope", "Coiled hemp rope, 30ft."),
-            ("gemstone", "Uncut gem catching stray light."),
-            ("ancient scroll", "Sealed with brittle wax."),
-            ("oil flask", "Stoppered flask of lamp oil."),
-            ("metal scrap", "Useful for patchwork repairs."),
-            ("sealed vial", "Opaque fluid, cool to touch."),
-        ]
+        theme_lower = (all_global_vars.get_player_character(userId).get_theme() or "").lower()
+        if "cyber" in theme_lower:
+            base_items = [
+                ("credits chip", "A small encoded chip worth a few credits."),
+                ("data shard", "Encrypted storage crystal."),
+                ("plasma cell", "Hums faintly with charge."),
+                ("medkit", "Sterile wraps and coagulant foam."),
+                ("neural jack", "A small cortex interface plug."),
+                ("encrypted drive", "Locked storage device, data unknown."),
+                ("stim patch", "Adhesive stimulant strip."),
+                ("keycard", "A magnetic access card, lightly scratched."),
+                ("synth fiber", "A coil of high-tensile synthetic cord."),
+                ("micro drone", "A palm-sized recon drone, damaged."),
+            ]
+        elif "steam" in theme_lower:
+            base_items = [
+                ("cog token", "A brass token stamped with a gear emblem."),
+                ("gear fragment", "Jagged cog from a larger machine."),
+                ("metal scrap", "Useful for patchwork repairs."),
+                ("oil flask", "Stoppered flask of machine oil."),
+                ("sealed vial", "Opaque fluid, cool to touch."),
+                ("copper tube", "A short length of pressure-rated piping."),
+                ("wrench", "A heavy iron spanner, well-worn."),
+                ("pressure gauge", "Cracked glass dial, still functional."),
+                ("brass compass", "Engraved compass with a spinning needle."),
+                ("steam crystal", "A heat-resonant mineral shard."),
+            ]
+        else:  # Medieval
+            base_items = [
+                ("bronze coin", "Ancient coin, its face worn smooth."),
+                ("rusty dagger", "A pitted blade with a worn leather grip."),
+                ("leather satchel", "A weathered satchel with a broken clasp."),
+                ("torch", "Wrapped in pitch-soaked cloth."),
+                ("old map", "Faded parchment with partial routes."),
+                ("copper key", "Small key etched with runes."),
+                ("rations", "Dry but filling travel food."),
+                ("rope", "Coiled hemp rope, 30ft."),
+                ("gemstone", "Uncut gem catching stray light."),
+                ("ancient scroll", "Sealed with brittle wax."),
+            ]
 
         rarity_table = [
             ("Common", 1.0),
@@ -168,7 +193,8 @@ class Room:
             "map": self._map_html,
             "x": self._room_pos_x,
             "y": self._room_pos_y,
-            "items": self._items
+            "items": self._items,
+            "identity": self._room_identity,
         }
 
         result = room_collection.insert_one(room_doc)
@@ -197,15 +223,60 @@ class room_holder:
         self._cur_pos_y = 0
         self._npc_factory = None
 
-    def add_empty_room(self, x_row, y_col):
+    def configure_grid(self, rows, cols):
+        self._rows = max(2, int(rows))
+        self._cols = max(2, int(cols))
+        self._array_of_rooms = [[None for _ in range(self._cols)] for _ in range(self._rows)]
+        self._cur_pos_x = 0
+        self._cur_pos_y = 0
+
+    def generate_random_connected_room_coords(self, min_rooms=6, max_rooms=14, start_x=0, start_y=0):
+        max_cells = self._rows * self._cols
+        min_rooms = max(1, min(int(min_rooms), max_cells))
+        max_rooms = max(min_rooms, min(int(max_rooms), max_cells))
+        target_rooms = random.randint(min_rooms, max_rooms)
+
+        start_x = max(0, min(int(start_x), self._cols - 1))
+        start_y = max(0, min(int(start_y), self._rows - 1))
+
+        coords = {(start_x, start_y)}
+        frontier = {(start_x, start_y)}
+
+        while len(coords) < target_rooms and frontier:
+            cx, cy = random.choice(tuple(frontier))
+            neighbors = [(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)]
+            random.shuffle(neighbors)
+
+            added = False
+            for nx, ny in neighbors:
+                if nx < 0 or ny < 0 or nx >= self._cols or ny >= self._rows:
+                    continue
+                if (nx, ny) in coords:
+                    continue
+
+                coords.add((nx, ny))
+                frontier.add((nx, ny))
+                added = True
+                if len(coords) >= target_rooms:
+                    break
+
+            if not added:
+                frontier.discard((cx, cy))
+
+        self._cur_pos_x = start_x
+        self._cur_pos_y = start_y
+        return list(coords)
+
+    def add_empty_room(self, x_row, y_col, room_identity=None):
         print(f"Added empty room at x_row: {x_row}, y_col: {y_col}")
         room = Room(x_row, y_col, npc_factory=self._npc_factory)
         room._seed = hash(f"{x_row}_{y_col}")
+        room._room_identity = room_identity
         self._array_of_rooms[y_col][x_row] = room
         return room.store_room()
 
     def get_room(self, userId, x, y):
-        if y < 0 or y >= self._rows or x < 0 or x >= self._cols:
+        if x < 0 or x >= self._cols or y < 0 or y >= self._rows:
             return None
 
         cached_room = self._array_of_rooms[y][x]
@@ -232,6 +303,7 @@ class room_holder:
         r._description = room_doc.get("description")
         r._items = room_doc.get("items") or []
         r._seed = room_doc.get("seed")
+        r._room_identity = room_doc.get("identity")
         r._npc_id = room_doc.get("_npc_id")
         r._npc = None
 
@@ -280,7 +352,7 @@ class room_holder:
         theme_era = all_global_vars.get_player_character(userId).get_theme()
         # Cache the rendered map HTML per room to avoid re-rendering every time
         if not getattr(cur_room, "_map_html", None):
-            cur_room._map_html = generate_room_map(self, theme_era)
+            cur_room._map_html = generate_room_map(self, theme_era, userId=userId)
         ret_string += cur_room._map_html
         ret_string += "<BR>"
 
@@ -436,6 +508,65 @@ class room_holder:
             return "There is no NPC here."
         return self.get_current_room(userId).get_npc().allow_pass(userId)
 
+    def move_current_room_npc(self, userId, direction=None):
+        cur_room = self.get_current_room(userId)
+        if cur_room is None:
+            return False, "No room found."
+
+        npc = cur_room.get_npc()
+        if npc is None:
+            return False, "There is no NPC here to move."
+
+        directions = {
+            "north": (0, 1),
+            "south": (0, -1),
+            "east": (1, 0),
+            "west": (-1, 0),
+        }
+
+        valid_moves = []
+        for name, (dx, dy) in directions.items():
+            tx = self._cur_pos_x + dx
+            ty = self._cur_pos_y + dy
+            target = self.get_room(userId, tx, ty)
+            if target is None:
+                continue
+            if target.get_npc() is not None:
+                continue
+            valid_moves.append((name, tx, ty, target))
+
+        if not valid_moves:
+            return False, "No adjacent room is available for that NPC to move into."
+
+        picked = None
+        if direction:
+            wanted = direction.strip().lower()
+            for option in valid_moves:
+                if option[0] == wanted:
+                    picked = option
+                    break
+            if picked is None:
+                return False, "That direction is not available for NPC movement."
+        else:
+            picked = random.choice(valid_moves)
+
+        dir_name, new_x, new_y, target_room = picked
+
+        cur_room._npc = None
+        cur_room._npc_id = None
+        cur_room.update_room(cur_room._id, {"_npc_id": None})
+
+        target_room._npc = npc
+        target_room._npc_id = getattr(npc, "_id", None)
+        target_room.update_room(target_room._id, {"_npc_id": target_room._npc_id})
+
+        npc.set_room(new_x, new_y)
+        if getattr(npc, "_id", None) is not None:
+            npc.update_npc(npc._id, {"x_pos": new_x, "y_pos": new_y})
+
+        npc_name = npc.get_name() or "The NPC"
+        return True, f"{npc_name} moved {dir_name}."
+
     def move_north(self, userId):
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
@@ -469,7 +600,7 @@ class room_holder:
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
 
-        if self._rows > cur_x + 1:
+        if self._cols > cur_x + 1:
             next_room = self.get_room(userId, cur_x + 1, cur_y)  # Updating room logic to check/generate rooms
             if next_room is None:
                 return "Can't move that way!"
@@ -484,7 +615,7 @@ class room_holder:
         cur_x = self._cur_pos_x
         cur_y = self._cur_pos_y
 
-        if self._rows > cur_x - 1:
+        if cur_x > 0:
             next_room = self.get_room(userId, cur_x - 1, cur_y)  # Updating room logic to check/generate rooms
             if next_room is None:
                 return "Can't move that way!"
@@ -499,8 +630,9 @@ class room_holder:
 
         Legend:
         - [E] current position (blue)
-        - [-] visited room (green)
-        - [?] undiscovered but generated room (dim)
+        - [?] visited room (green)
+        - [?] unexplored room (dim)
+        Passages (--- and |) connect adjacent rooms.
         Empty space means no room exists at that coordinate.
         """
 
@@ -515,54 +647,52 @@ class room_holder:
         cx = self._cur_pos_x
         cy = self._cur_pos_y
 
-        def cell_token(x, y):
+        def has_room(x, y):
+            if x < 0 or x >= cols or y < 0 or y >= rows:
+                return False
+            return arr[y][x] is not None
+
+        def cell_html(x, y):
+            if not has_room(x, y):
+                return '   '
             r = arr[y][x]
-            if r is None:
-                return '<span style="color:#333">···</span>'
             if x == cx and y == cy:
                 return '<span style="color:#4da3ff">[E]</span>'
-            if getattr(r, "_visited", False):
-                return '<span style="color:#66ff66">[-]</span>'
+            if getattr(r, '_visited', False):
+                return '<span style="color:#66ff66">[?]</span>'
             return '<span style="color:#aaa">[?]</span>'
 
         lines = []
         # Render north (top) to south (bottom)
         for y in range(rows - 1, -1, -1):
-            # cells row
+            # Room row with horizontal passages
             row_parts = []
             for x in range(cols):
-                row_parts.append(cell_token(x, y))
-                # horizontal connector between rooms
+                row_parts.append(cell_html(x, y))
                 if x < cols - 1:
-                    if arr[y][x] is not None and arr[y][x + 1] is not None:
-                        row_parts.append('<span style="color:#777">───</span>')
+                    if has_room(x, y) and has_room(x + 1, y):
+                        row_parts.append('<span style="color:#666">---</span>')
                     else:
                         row_parts.append('   ')
             lines.append(''.join(row_parts))
 
-            # vertical connectors (skip after last printed row)
+            # Vertical passage row between this y and y-1
             if y > 0:
-                conn_parts = []
+                pass_parts = []
                 for x in range(cols):
-                    if arr[y][x] is not None and arr[y - 1][x] is not None:
-                        conn_parts.append(
-                            '  '
-                            '<span style="color:#777">│</span>'
-                            '  '
-                        )
+                    if has_room(x, y) and has_room(x, y - 1):
+                        pass_parts.append('<span style="color:#666"> | </span>')
                     else:
-                        conn_parts.append('     ')
-                    # keep spacing with horizontal gaps too
+                        pass_parts.append('   ')
                     if x < cols - 1:
-                        conn_parts.append('   ')
-                lines.append(''.join(conn_parts))
+                        pass_parts.append('   ')
+                lines.append(''.join(pass_parts))
 
         legend = (
             '<div style="margin-top:8px;color:#bbb">'
             '<span style="color:#4da3ff">[E]</span> You   '
-            '<span style="color:#66ff66">[-]</span> Visited   '
-            '<span style="color:#aaa">[?]</span> Unexplored   '
-            '<span style="color:#777">─│</span> Passages'
+            '<span style="color:#66ff66">[?]</span> Visited room   '
+            '<span style="color:#aaa">[?]</span> Unexplored room'
             '</div>'
         )
 

@@ -8,26 +8,13 @@ import time
 import re
 
 load_dotenv()
-# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# def call_ai(request_text):
-#     return client.responses.create(
-#         model="gpt-5-nano",
-#         #model="gpt-5.2-chat-latest",
-#         input=request_text,
-#     ).output_text
-
-client = genai.Client()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def call_ai(request_text):
-    while True:
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash-lite", contents=request_text)
-            return response.text
-        except:
-            print("Got an exception from gemini ai call")
-            time.sleep(1)
+    return client.responses.create(
+        model="gpt-4.1-nano",
+        input=request_text,
+    ).output_text
 
 
 def _extract_wait_seconds(msg: str):

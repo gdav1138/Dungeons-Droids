@@ -78,6 +78,7 @@ class PlayerCharacter(Humanoid):
         self._wis = None  # wisdom
         self._con = None  # constitution
         self._exp = 0
+        self._gold = 0
         self._section = "Starting"
         self._theme = None
         self._rooms = room_holder()
@@ -102,6 +103,19 @@ class PlayerCharacter(Humanoid):
 
     def get_current_exp(self):
         return self._exp
+
+    def get_gold(self):
+        return self._gold
+
+    def add_gold(self, amount):
+        self._gold += max(0, int(amount))
+
+    def spend_gold(self, amount):
+        amount = max(0, int(amount))
+        if self._gold < amount:
+            return False
+        self._gold -= amount
+        return True
 
     def get_section(self):
         return self._section
@@ -207,6 +221,7 @@ class PlayerCharacter(Humanoid):
             "class": self._class,
             "level": self._level,
             "exp": self.get_current_exp(),
+            "gold": self._gold,
             "health": self.get_health(),
             "mana": self.get_mana(),
             "str": self._str,
@@ -241,6 +256,7 @@ class PlayerCharacter(Humanoid):
             "class": self._class,
             "level": self._level,
             "exp": self.get_current_exp(),
+            "gold": self._gold,
             "health": self.get_health(),
             "mana": self.get_mana(),
             "str": self._str,
@@ -278,11 +294,15 @@ class PlayerCharacter(Humanoid):
         returning_character._class = character_doc.get("class")
         returning_character._level = character_doc.get("level", 1)
         returning_character._exp = character_doc.get("exp", 0)
+        returning_character._gold = character_doc.get("gold", 0)
         returning_character._health = character_doc.get("health", 100)
         returning_character._mana = character_doc.get("mana", 60)
         returning_character._str = character_doc.get("str")
         returning_character._int = character_doc.get("int")
         returning_character._dex = character_doc.get("dex")
+        returning_character._cha = character_doc.get("cha")
+        returning_character._wis = character_doc.get("wis")
+        returning_character._con = character_doc.get("con")
         returning_character._section = character_doc.get("section")
         returning_character._theme = character_doc.get("theme")
         returning_character._inventory = character_doc.get("inventory", []) or []
@@ -305,9 +325,9 @@ class PlayerCharacter(Humanoid):
         return result
 
     @classmethod
-    def delete_character(self, charId):
+    def delete_character(cls, charId):
         """
-        Deletes a user from the database.
+        Deletes a character from the database.
         """
         result = char_collection.delete_one({"_id": charId})
         print(f"Character {charId} delete result: {result.deleted_count} deleted")
