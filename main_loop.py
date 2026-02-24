@@ -209,16 +209,11 @@ def do_main_loop(userInput, userId):
     return "Invalid input. Type help for options."
 
 def check_direction_for_npc(userId, room_array):
-    print("1")
-    print("room_array: ", room_array)
-    print("2")
     try:
         can_pass = room_array.check_pass_npc(userId)
     except Exception as e:
         print("ERROR in check_pass_npc:", repr(e))
         raise
-    #can_pass = room_array.check_pass_npc(userId)
-    print("Can pass: " + str(can_pass))
     if can_pass:
         return True, "The NPC lets you exit the room"
     else:
