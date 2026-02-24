@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify, session, render_template, redirect, u
 from hello import getOutput, InitializeStartUp
 from user_db import register_user, authenticate_user, get_user_by_username
 from all_global_vars import all_global_vars
-import uuid
 import traceback
 
 # This file loads up Flask to serve web pages at the root / directory.
@@ -132,27 +131,26 @@ def home():
     user_id = session.get("userId")
     username = session.get("username", "User")
     if user_id:
-        if not all_global_vars.has_userId(user_id):
-            initializeStartUp(user_id)
-
-        first_response = getOutput(userId=session["userId"], userInput="None")
-        first_inventory = all_global_vars.get_player_character(user_id).get_inventory()
-        first_items = all_global_vars.get_player_character(session["userId"]).get_room_array().list_items()
+        try:
+            if not all_global_vars.has_userId(user_id):
+                InitializeStartUp(user_id)
+            first_response = getOutput(userId=session["userId"], userInput="None")
+        except ValueError:
+            # Stale session — user no longer exists in DB
+            session.clear()
+            return redirect(url_for("login"))
     else:
         first_response = "Please log in."
-        first_inventory = []
-        first_items = []
 
+    player_char = all_global_vars.get_player_character(user_id) if user_id else None
     return render_template(
         "gameloop.html",
         first_response=first_response,
         username=username,
-        first_inventory=first_inventory,
-        first_items=first_items,
+        first_inventory=[],
+        first_stats=_build_stats(player_char),
     )
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-

@@ -300,6 +300,9 @@ class PlayerCharacter(Humanoid):
         returning_character._str = character_doc.get("str")
         returning_character._int = character_doc.get("int")
         returning_character._dex = character_doc.get("dex")
+        returning_character._cha = character_doc.get("cha")
+        returning_character._wis = character_doc.get("wis")
+        returning_character._con = character_doc.get("con")
         returning_character._section = character_doc.get("section")
         returning_character._theme = character_doc.get("theme")
         returning_character._inventory = character_doc.get("inventory", []) or []
@@ -310,21 +313,21 @@ class PlayerCharacter(Humanoid):
 
         return returning_character
 
-    def update_char(self, charId, updates):
+    def update_char(self, userId, updates):
         """
-        Updates a character doc with the given updates.
+        Updates a user doc with the given updates.
         """
-        query_filter = {"_id": charId}
+        query_filter = {"_id": userId}
         update_operation = {"$set": updates}
 
         result = char_collection.update_one(query_filter, update_operation)
-        print(f"Character {charId} update result: {result.modified_count} modified")
+        print(f"User {userId} update result: {result.modified_count} modified")
         return result
 
     @classmethod
-    def delete_character(self, charId):
+    def delete_character(cls, charId):
         """
-        Deletes a user from the database.
+        Deletes a character from the database.
         """
         result = char_collection.delete_one({"_id": charId})
         print(f"Character {charId} delete result: {result.deleted_count} deleted")
@@ -475,7 +478,7 @@ class Npc(Humanoid):
         call_string = "Based on the conversation: "
         for line in self._past_conversation:
             call_string += line + " "
-        call_string += f"And the player wants to go past the npc with friendliness {self._friendlyness} out of 100"
+        call_string += f"And the player wants to go past the npc with friendlynes {self._friendlyness} out of 100"
         call_string += (" Do you allow the player to pass? Don't let them pass unless they've had a good" +
                         " conversation with you, or if you've said they could pass it's okay. Don't be too" +
                         " difficult to get past, be simple. Answer with one word, yes or no")
