@@ -78,10 +78,7 @@ class PlayerCharacter(Humanoid):
         self._wis = None  # wisdom
         self._con = None  # constitution
         self._exp = 0
-<<<<<<< mikebranch
         self._gold = 0
-=======
->>>>>>> main
         self._section = "Starting"
         self._theme = None
         self._rooms = room_holder()
@@ -107,7 +104,6 @@ class PlayerCharacter(Humanoid):
     def get_current_exp(self):
         return self._exp
 
-<<<<<<< mikebranch
     def get_gold(self):
         return self._gold
 
@@ -121,8 +117,6 @@ class PlayerCharacter(Humanoid):
         self._gold -= amount
         return True
 
-=======
->>>>>>> main
     def get_section(self):
         return self._section
 
@@ -227,10 +221,7 @@ class PlayerCharacter(Humanoid):
             "class": self._class,
             "level": self._level,
             "exp": self.get_current_exp(),
-<<<<<<< mikebranch
             "gold": self._gold,
-=======
->>>>>>> main
             "health": self.get_health(),
             "mana": self.get_mana(),
             "str": self._str,
@@ -265,10 +256,7 @@ class PlayerCharacter(Humanoid):
             "class": self._class,
             "level": self._level,
             "exp": self.get_current_exp(),
-<<<<<<< mikebranch
             "gold": self._gold,
-=======
->>>>>>> main
             "health": self.get_health(),
             "mana": self.get_mana(),
             "str": self._str,
@@ -306,10 +294,7 @@ class PlayerCharacter(Humanoid):
         returning_character._class = character_doc.get("class")
         returning_character._level = character_doc.get("level", 1)
         returning_character._exp = character_doc.get("exp", 0)
-<<<<<<< mikebranch
         returning_character._gold = character_doc.get("gold", 0)
-=======
->>>>>>> main
         returning_character._health = character_doc.get("health", 100)
         returning_character._mana = character_doc.get("mana", 60)
         returning_character._str = character_doc.get("str")
