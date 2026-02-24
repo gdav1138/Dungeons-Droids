@@ -508,6 +508,12 @@ class room_holder:
             return "There is no NPC here."
         return self.get_current_room(userId).get_npc().allow_pass(userId)
 
+    def fight_npc(self, userId):
+        room = self.get_current_room(userId)
+        if not room or room._npc is None:
+            return "There is no NPC here"
+        return room.get_npc().fight(userId)
+    
     def move_current_room_npc(self, userId, direction=None):
         cur_room = self.get_current_room(userId)
         if cur_room is None:

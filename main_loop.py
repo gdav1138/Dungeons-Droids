@@ -173,6 +173,8 @@ def do_main_loop(userInput, userId):
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
         return room_array.talk_to_npc(userId, userInput[3:])
+    if userInput == "fight npc":
+        return room_array.fight_npc(userId)
     if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
         direction = None
         if userInput.startswith("move npc"):

@@ -8,7 +8,7 @@ from room import room_holder
 import os
 import uuid
 import random
-
+from bson import ObjectId  
 
 load_dotenv()
 client = MongoClient(os.getenv('URI'))
@@ -492,6 +492,53 @@ class Npc(Humanoid):
         self._past_conversation.append(
             "Note: The player tried to go past the npc to exit the room here and was allowed")
         return True
+
+    def fight(self, userId):
+        player_char = all_global_vars.get_player_character(userId)
+        room_array = player_char.get_room_array()
+        cur_room = room_array.get_current_room(userId)
+
+        winchance = random.randint(0,110)
+        winchance += player_char._str * 2
+        winchance += player_char._dex * 2
+        
+        if self._toughness > winchance:
+            playerWins = False
+            print(f"Playerwins false: WinC {winchance} tougheness {self._toughness}")
+        else:
+            playerWins = True
+        print(f"Playerwins true: WinC {winchance} tougheness {self._toughness}")
+
+        # --- kill npc in room (memory + DB) ---
+        old_npc_id = getattr(cur_room, "_npc_id", None)
+
+        cur_room._npc = None
+        cur_room._npc_id = None
+
+        # persist: room no longer has an npc
+        if getattr(cur_room, "_id", None) is not None:
+            cur_room.update_room(cur_room._id, {"_npc_id": None})
+
+        # optional cleanup: delete npc document too
+        if old_npc_id is not None:
+            try:
+                mongo_id = ObjectId(old_npc_id) if not isinstance(old_npc_id, ObjectId) else old_npc_id
+                npc_collection.delete_one({"_id": mongo_id})
+            except Exception as e:
+                print("Warning: failed to delete npc doc:", e)
+        fight_response = call_ai(f"Describe a fight between the player and the npc. The player's name is"
+                                 +f"{player_char._name} and the NPC's name is {self._name} and the NPCs "
+                                 +f"description is {self._description}. The NPCs friendliness is"
+                                 +f"{self._friendlyness} out of 100, and the NPCs toughness is {self._toughness} "
+                                 +f"out of 100. The the player winning is {playerWins}. This fight is to the death, "
+                                 +f"so if player winning is true then the npc dies, if player winning is false the player dies")
+        
+        if playerWins is False:
+            print ("Playerwins false, restarting")
+            import hello
+            return fight_response + "<BR>" + hello.restart_game(userId)
+        
+        return fight_response
 
     def store_npc(self):
         """
