@@ -344,7 +344,9 @@ def doGetPlayerConstitution(userInput, userId):
                 f"Total: {total} points<BR><BR>"
                 f"Type <strong>yes</strong> to confirm, or <strong>no</strong> to change your stats:<BR>")
     except ValueError:
-
+        return "Please enter a valid number for Constitution.<BR>"
+    except Exception as e:
+        return f"An error occurred: {str(e)}<BR>Please try again.<BR>"
 
 def doGetPlayerDexterity(userInput, userId):
     """Handles dexterity input. Then moves to charisma."""
