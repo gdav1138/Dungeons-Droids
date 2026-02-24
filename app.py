@@ -129,43 +129,6 @@ def home():
             traceback.print_exc()
             return jsonify({"response": f"Server error: {str(e)}"}), 500
 
-            return jsonify({"error": str(e)}), 500
-        # Include a fresh minimap with every response
-        rooms = all_global_vars.get_player_character(session["userId"]).get_room_array()
-        map_html = rooms.render_minimap()
-        return jsonify({"response": response_text, "map": map_html})
-
-    user_id = session.get("userId")
-    username = session.get("username", "User")
-    if user_id:
-        try:
-            if not all_global_vars.has_userId(user_id):
-                InitializeStartUp(user_id)
-            first_response = getOutput(userId=session["userId"], userInput="None")
-        except ValueError:
-            # Stale session — user no longer exists in DB
-            session.clear()
-            return redirect(url_for("login"))
-        else:
-            first_response = "Please log in."
-
-    player_char = all_global_vars.get_player_character(user_id) if user_id else None
-        if not all_global_vars.has_userId(user_id):
-            InitializeStartUp(user_id)
-
-        first_response = getOutput(userId=session["userId"], userInput="None")
-        else:
-            first_response = "Please log in."
-
-    return render_template(
-        "gameloop.html",
-        first_response=first_response,
-        username=username,
-        first_inventory=[],
-        first_stats=_build_stats(player_char),
-        first_inventory=[]
-    )
-
     user_id = session.get("userId")
     username = session.get("username", "User")
     if user_id:
