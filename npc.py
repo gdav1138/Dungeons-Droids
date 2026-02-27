@@ -90,7 +90,7 @@ class npc:
         # Chance that this NPC has a quest to offer (defeat enemies, obtain item, obtain gold, etc.)
         theme = all_global_vars.get_player_character(userId).get_theme() or "fantasy"
         self._quest_to_offer = create_random_quest(theme, self._name) if random.random() < 0.35 else None
-    
+
     def talk(self, userId, talk_string):
         mods = self._interaction_modifiers(userId)
         call_string = "For the NPC named " + self._name + " with the descrption " + self._description
