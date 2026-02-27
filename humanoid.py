@@ -5,6 +5,12 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
 from room import room_holder
+from quests import (
+    QUEST_DEFEAT_ENEMIES,
+    QUEST_OBTAIN_ITEM,
+    QUEST_OBTAIN_GOLD,
+    create_random_quest,
+)
 import os
 import uuid
 import random
@@ -83,6 +89,7 @@ class PlayerCharacter(Humanoid):
         self._theme = None
         self._rooms = room_holder()
         self._world_map = []
+        self._quests = []
 
         # Appearance/customization (freeform + optional structured fields)
         self._appearance = {
@@ -109,6 +116,7 @@ class PlayerCharacter(Humanoid):
 
     def add_gold(self, amount):
         self._gold += max(0, int(amount))
+        self._update_gold_quests()
 
     def spend_gold(self, amount):
         amount = max(0, int(amount))
@@ -122,6 +130,91 @@ class PlayerCharacter(Humanoid):
 
     def get_theme(self):
         return self._theme
+
+    def get_quests(self):
+        return list(self._quests or [])
+
+    def add_quest(self, quest_dict):
+        if not quest_dict or not isinstance(quest_dict, dict):
+            return
+        quest_id = quest_dict.get("id")
+        if self.has_quest(quest_id):
+            return
+        # Store a shallow copy so callers can't mutate internal state accidentally
+        self._quests.append(dict(quest_dict))
+
+    def has_quest(self, quest_id):
+        if not quest_id:
+            return False
+        return any(isinstance(q, dict) and q.get("id") == quest_id for q in (self._quests or []))
+
+    # --- Quest progress helpers -------------------------------------------------
+    def record_enemy_kill(self, count: int = 1):
+        """Record that the player has slain one or more enemies.
+
+        Updates defeat-enemies quests and marks them completed once the target is reached.
+        """
+        if count <= 0:
+            return
+        if not self._quests:
+            return
+        for q in self._quests:
+            if not isinstance(q, dict):
+                continue
+            if q.get("type") != QUEST_DEFEAT_ENEMIES:
+                continue
+            if (q.get("status") or "active") != "active":
+                continue
+            target = int(q.get("target", 0) or 0)
+            current = int(q.get("progress", 0) or 0)
+            current += int(count)
+            q["progress"] = current
+            if current >= target and target > 0:
+                q["status"] = "completed"
+
+    def record_item_obtained(self, item_obj):
+        """Record that an item was obtained; may complete obtain-item quests."""
+        if not item_obj or not self._quests:
+            return
+        name = None
+        if isinstance(item_obj, dict):
+            name = (item_obj.get("name") or "").strip().lower()
+        else:
+            name = str(item_obj).strip().lower()
+        if not name:
+            return
+        for q in self._quests:
+            if not isinstance(q, dict):
+                continue
+            if q.get("type") != QUEST_OBTAIN_ITEM:
+                continue
+            if (q.get("status") or "active") != "active":
+                continue
+            target_name = str(q.get("target") or "").strip().lower()
+            if not target_name:
+                continue
+            if name == target_name:
+                q["progress"] = 1
+                q["status"] = "completed"
+
+    def _update_gold_quests(self):
+        """Internal helper to check obtain-gold quests whenever gold changes."""
+        if not self._quests:
+            return
+        for q in self._quests:
+            if not isinstance(q, dict):
+                continue
+            if q.get("type") != QUEST_OBTAIN_GOLD:
+                continue
+            if (q.get("status") or "active") != "active":
+                continue
+            target = int(q.get("target", 0) or 0)
+            if target <= 0:
+                continue
+            # Consider quest complete once the player has at least target gold at once.
+            if self._gold >= target:
+                q["progress"] = max(int(q.get("progress", 0) or 0), target)
+                q["status"] = "completed"
 
     def get_room_array(self):
         return self._rooms
@@ -237,6 +330,7 @@ class PlayerCharacter(Humanoid):
             "rooms_visited": self._rooms.to_dict(),
             "world_map": self._world_map,
             "inventory": list(self._inventory),
+            "quests": list(self._quests or []),
         }
 
         result = char_collection.insert_one(char_doc)
@@ -272,6 +366,7 @@ class PlayerCharacter(Humanoid):
             "rooms_visited": self._rooms.to_dict(),
             "world_map": self._world_map,
             "inventory": list(self._inventory),
+            "quests": list(self._quests or []),
         }
 
         result = char_collection.update_one({"_id": charId}, {"$set": update_doc})
@@ -307,6 +402,7 @@ class PlayerCharacter(Humanoid):
         returning_character._theme = character_doc.get("theme")
         returning_character._inventory = character_doc.get("inventory", []) or []
         returning_character._world_map = character_doc.get("world_map", []) or []
+        returning_character._quests = character_doc.get("quests", []) or []
 
         rooms_doc = character_doc.get("rooms_visited")
         returning_character._rooms = returning_character._rooms.from_dict(rooms_doc) if rooms_doc else room_holder()
@@ -341,23 +437,32 @@ class Npc(Humanoid):
         self._room_y = None
         self._toughness = random.randint(1, 100)
         self._friendlyness = random.randint(1, 100)
-        self._name = call_ai("Pick a name for A NPC with the theme " +
-                             all_global_vars.get_player_character(userId).get_theme() +
-                             " that has a toughness of " + str(self._toughness) +
-                             " out of 100, with 100/100 being very tough" +
-                             " and has a friendliness score where 100 is very friendly and 0 is very hostile of " +
-                             str(self._friendlyness) +
-                             " Just include the name by itself, don't put any other words in the response")
+        theme = all_global_vars.get_player_character(userId).get_theme()
+        self._name = call_ai(
+            "Pick a name for A NPC with the theme " 
+            + str(theme)
+            + " that has a toughness of "
+            + str(self._toughness)
+            + " out of 100, with 100/100 being very tough"
+            + " and has a friendliness score where 100 is very friendly and 0 is very hostile of "
+            + str(self._friendlyness)
+            + " Just include the name by itself, don't put any other words in the response"
+        )
 
-        self._description = call_ai("Describe the NPC with the name " + self._name + "and the theme " +
-                                    all_global_vars.get_player_character(userId).get_theme() +
-                                    " that has a toughness of " + str(self._toughness) +
-                                    " out of 100, with 100/100 being very tough" +
-                                    " and has a friendliness score where 100 is very friendly and 0 is very" +
-                                    " hostile of " + str(self._friendlyness) +
-                                    " Just write about a paragraph of plain text to describe the npc, like in a novel")
+        self._description = call_ai(
+            "Describe the NPC with the name " + self._name + "and the theme " 
+            + str(theme)
+            + " that has a toughness of " + str(self._toughness)
+            + " out of 100, with 100/100 being very tough"
+            + " and has a friendliness score where 100 is very friendly and 0 is very"
+            + " hostile of " + str(self._friendlyness)
+            + " Just write about a paragraph of plain text to describe the npc, like in a novel"
+        )
 
         self._past_conversation = []
+        # Each NPC starts with exactly one quest they can offer.
+        q_theme = theme or "fantasy"
+        self._quest_to_offer = create_random_quest(q_theme, self._name)
 
     def set_room(self, x_pos, y_pos):
         self._room_x = x_pos
@@ -471,7 +576,42 @@ class Npc(Humanoid):
         self._past_conversation.append(talk_string)
         self._past_conversation.append(response)
         self.update_npc(self._id, {"conversations": self._past_conversation})
-        return self._name + " says " + response
+
+        out = self._name + " says " + response
+
+        # Offer a quest to the player and add it to their quest log the first time.
+        quest = getattr(self, "_quest_to_offer", None)
+        if quest:
+            pc = all_global_vars.get_player_character(userId)
+            quest_id = quest.get("id")
+            try:
+                already_have = pc.has_quest(quest_id)
+            except AttributeError:
+                already_have = False
+            if not already_have:
+                try:
+                    pc.add_quest(quest)
+                    # Persist the updated quest log immediately.
+                    from user_db import get_user_by_id
+                    user_doc = get_user_by_id(userId)
+                    char_id = user_doc.get("_player_character_id") if user_doc else None
+                    if char_id:
+                        pc.update_player_character(char_id)
+                except Exception as e:
+                    print("Warning: failed to add quest to player log:", e)
+                else:
+                    out += (
+                        " Then "
+                        + self._name
+                        + " adds: I have a task for you, if you're willing. "
+                        + str(quest.get("description", ""))
+                        + " In return, I can offer "
+                        + str(quest.get("reward_description", "something valuable"))
+                        + ". (Quest added to your log. Type 'quests' to view.)"
+                    )
+                    self._quest_to_offer = None
+
+        return out
 
     def allow_pass(self, userId):
         print("In allow pass")
@@ -526,6 +666,13 @@ class Npc(Humanoid):
                 npc_collection.delete_one({"_id": mongo_id})
             except Exception as e:
                 print("Warning: failed to delete npc doc:", e)
+
+        # If the player won, update any defeat-enemies quests before generating narration.
+        if playerWins:
+            try:
+                player_char.record_enemy_kill(1)
+            except AttributeError:
+                pass
         fight_response = call_ai(f"Describe a fight between the player and the npc. The player's name is"
                                  +f"{player_char._name} and the NPC's name is {self._name} and the NPCs "
                                  +f"description is {self._description}. The NPCs friendliness is"
@@ -600,6 +747,9 @@ class Npc(Humanoid):
         npc._toughness = character_doc.get("toughness")
         npc._friendlyness = character_doc.get("friendlyness")
         npc._past_conversation = character_doc.get("conversations") or []
+        # Quests are generated when the NPC is first created; rehydrated NPCs simply
+        # have no pending quest to offer unless new logic adds it later.
+        npc._quest_to_offer = None
         return npc
 
     def update_npc(self, npc_id, updates):

@@ -77,7 +77,7 @@ def do_main_loop(userInput, userId):
         return _format_inventory(inv)
 
     # Quest log
-    if userInput in ("quests", "q"):
+    if userInput in ("quests", "quest", "q"):
         quest_list = all_global_vars.get_player_character(userId).get_quests()
         if not quest_list:
             return "Active quests: (none)<BR>"

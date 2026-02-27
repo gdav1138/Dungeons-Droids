@@ -1,6 +1,24 @@
 """
 Quest system: quest types and random quest generation.
-Quests are stored as dicts for easy serialization; completion is not implemented in this build.
+
+Each quest is stored as a plain dict so it can be easily serialized into MongoDB and
+rehydrated back into a player character. The core schema is:
+
+    {
+        "id": <str uuid>,
+        "type": <one of QUEST_*>,
+        "target": <int|str>,    # e.g. kill count, item name, gold amount
+        "description": <str>,   # human-readable text
+        "quest_giver": <str>,   # NPC name
+        "reward_description": <str>,
+        "status": "active" | "completed",
+        "progress": <int>,      # generic progress counter (0+)
+    }
+
+Win conditions:
+- defeat_enemies: quest is complete when progress >= target (enemy kills).
+- obtain_item: quest is complete when the matching item is obtained once.
+- obtain_gold: quest is complete when the player's gold >= target.
 """
 import random
 import uuid
@@ -21,8 +39,9 @@ QUEST_ITEMS = [
 
 def create_random_quest(theme: str, quest_giver_name: str) -> dict:
     """
-    Create a random quest appropriate for the theme. Returns a quest dict with:
-    id, type, target, description, quest_giver, reward_description.
+    Create a random quest appropriate for the theme.
+
+    Returns a quest dict with the schema documented in the module docstring.
     """
     quest_type = random.choice([
         QUEST_DEFEAT_ENEMIES,
@@ -65,6 +84,9 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
         "description": description,
         "quest_giver": quest_giver_name,
         "reward_description": reward,
+        # Progress / state fields
+        "status": "active",
+        "progress": 0,
     }
 
 
@@ -74,4 +96,6 @@ def format_quest_for_display(q: dict) -> str:
         return ""
     desc = q.get("description", "Unknown task.")
     giver = q.get("quest_giver", "Someone")
-    return f"[From {giver}] {desc}"
+    status = (q.get("status") or "active").lower()
+    prefix = "[Completed] " if status == "completed" else ""
+    return f"{prefix}[From {giver}] {desc}"
