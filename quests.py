@@ -2,13 +2,13 @@
 Quest system: quest types and random quest generation.
 
 Each quest is stored as a plain dict so it can be easily serialized into MongoDB and
-rehydrated back into a player character. The core schema is:
+rehydrated back into a player character.
 
     {
         "id": <str uuid>,
         "type": <one of QUEST_*>,
         "target": <int|str>,    # e.g. kill count, item name, gold amount
-        "description": <str>,   # human-readable text
+        "description": <str>,
         "quest_giver": <str>,   # NPC name
         "reward_description": <str>,
         "status": "active" | "completed",
