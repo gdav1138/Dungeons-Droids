@@ -68,6 +68,7 @@ def do_main_loop(userInput, userId):
             + "inventory (i) - show your items<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
+            + "fight npc - fights the npc"
         )
 
     # Inventory view
@@ -87,6 +88,9 @@ def do_main_loop(userInput, userId):
                 return "Specify what to pick up.<BR>"
             success, info = room_array.pickup_item(userId, item, player_char)
             if success:
+                from xp import award_xp
+
+                award_xp(userId, 50)
                 # Check if item is a coin — add value to gold instead of keeping in inventory
                 picked = player_char.get_inventory()[-1] if player_char.get_inventory() else None
                 _COIN_NAMES = {"bronze coin", "silver coin", "gold coin", "coin", "credits chip", "cog token"}
