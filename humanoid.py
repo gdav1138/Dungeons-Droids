@@ -8,7 +8,7 @@ from room import room_holder
 import os
 import uuid
 import random
-from bson import ObjectId  
+from bson import ObjectId
 
 load_dotenv()
 client = MongoClient(os.getenv('URI'))
@@ -203,12 +203,14 @@ class PlayerCharacter(Humanoid):
         self._world_map.append({"x": x, "y": y, "room_id": room_id})
 
     def earned_exp(self, new_exp):
-        current_exp = self.get_current_exp()
-        current_exp += new_exp
-        if current_exp >= 100:
-            current_exp = current_exp - 100
-            self.set_exp(current_exp)
+        new_exp = max(0, int(new_exp))
+        current_exp = self.get_current_exp() + new_exp
+
+        while current_exp >= 100:
+            current_exp -= 100
             self.level_up()
+
+        self.set_exp(current_exp)
 
     def store_player_character(self):
         """
@@ -471,6 +473,8 @@ class Npc(Humanoid):
         self._past_conversation.append(talk_string)
         self._past_conversation.append(response)
         self.update_npc(self._id, {"conversations": self._past_conversation})
+        from xp import award_xp
+        award_xp(userId, 25)
         return self._name + " says " + response
 
     def allow_pass(self, userId):
@@ -491,6 +495,9 @@ class Npc(Humanoid):
             return False
         self._past_conversation.append(
             "Note: The player tried to go past the npc to exit the room here and was allowed")
+        from xp import award_xp
+
+        award_xp(userId, 250)
         return True
 
     def fight(self, userId):
@@ -537,7 +544,10 @@ class Npc(Humanoid):
             print ("Playerwins false, restarting")
             import hello
             return fight_response + "<BR>" + hello.restart_game(userId)
-        
+
+        from xp import award_xp
+
+        award_xp(userId, 500)
         return fight_response
 
     def store_npc(self):
