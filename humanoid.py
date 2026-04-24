@@ -148,7 +148,7 @@ class PlayerCharacter(Humanoid):
             return False
         return any(isinstance(q, dict) and q.get("id") == quest_id for q in (self._quests or []))
 
-    # --- Quest progress helpers -------------------------------------------------
+    # Quest progress helpers
     def record_enemy_kill(self, count: int = 1):
         """Record that the player has slain one or more enemies.
 
@@ -576,6 +576,9 @@ class Npc(Humanoid):
         self._past_conversation.append(talk_string)
         self._past_conversation.append(response)
         self.update_npc(self._id, {"conversations": self._past_conversation})
+
+        from xp import award_xp
+        award_xp(userId, 25)
 
         out = self._name + " says " + response
 
