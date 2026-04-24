@@ -1,25 +1,14 @@
-#Used to contact OpenAI and get a chat gpt response to a query that's provided to the function.
-
-from openai import OpenAI
+import anthropic
 from dotenv import load_dotenv
 import os
-from google import genai
-import time
-import re
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 def call_ai(request_text):
-    return client.responses.create(
-        model="gpt-4.1-nano",
-        input=request_text,
-    ).output_text
-
-
-def _extract_wait_seconds(msg: str):
-    """Try to read a 'wait X seconds' hint from an error message."""
-    m = re.search(r"(\d+)\s*seconds", msg.lower())
-    if m:
-        return int(m.group(1))
-    return None
+    message = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": request_text}],
+    )
+    return message.content[0].text

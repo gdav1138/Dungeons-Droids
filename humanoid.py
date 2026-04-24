@@ -500,6 +500,101 @@ class Npc(Humanoid):
         award_xp(userId, 250)
         return True
 
+    def bribe(self, userId, gold_amount):
+        player_char = all_global_vars.get_player_character(userId)
+
+        # Deduct gold regardless of outcome
+        if not player_char.spend_gold(gold_amount):
+            return f"You don't have enough gold. You have {player_char.get_gold()} gold."
+
+        # Odds: gold offered vs NPC toughness, CHA gives a flat bonus
+        try:
+            cha = int(player_char.get_stats().get("cha", 0) or 0)
+        except Exception:
+            cha = 0
+        base_chance = (gold_amount / (self._toughness + 1)) * 100
+        chance = min(95, int(base_chance + cha * 3))
+        roll = random.randint(1, 100)
+        success = roll <= chance
+
+        print(f"Bribe: offered={gold_amount}, toughness={self._toughness}, cha={cha}, chance={chance}%, roll={roll}, success={success}")
+
+        if success:
+            self._past_conversation.append(
+                f"Note: The player bribed the NPC with {gold_amount} gold and the NPC accepted, agreeing to let them pass."
+            )
+            self.update_npc(self._id, {"conversations": self._past_conversation})
+            narrative = call_ai(
+                f"Write one short paragraph describing {player_char._name} slipping {gold_amount} gold to {self._name} "
+                f"(described as: {self._description}) and {self._name} accepting the bribe with a sly grin, "
+                f"agreeing to look the other way. Keep it in a fantasy/adventure tone matching the scene."
+            )
+            from xp import award_xp
+            award_xp(userId, 150)
+            return narrative + f"<BR>{self._name} pockets the gold and steps aside. You may pass."
+        else:
+            self._past_conversation.append(
+                f"Note: The player attempted to bribe the NPC with {gold_amount} gold but the NPC refused."
+            )
+            self.update_npc(self._id, {"conversations": self._past_conversation})
+            narrative = call_ai(
+                f"Write one short paragraph describing {player_char._name} trying to bribe {self._name} "
+                f"(described as: {self._description}) with {gold_amount} gold, and {self._name} refusing — "
+                f"maybe insulted, maybe just unmoved. Keep it in a fantasy/adventure tone. "
+                f"The NPC's toughness is {self._toughness}/100 and friendliness is {self._friendlyness}/100."
+            )
+            return narrative + f"<BR>{self._name} keeps your {gold_amount} gold and blocks your path. (You had a {chance}% chance.)"
+
+    def bribe_with_item(self, userId, item_name):
+        player_char = all_global_vars.get_player_character(userId)
+
+        item = player_char.remove_item(item_name)
+        if item is None:
+            return f"You don't have '{item_name}' in your inventory."
+
+        item_display = item.get("name", item_name) if isinstance(item, dict) else str(item)
+        item_value = item.get("value", 5) if isinstance(item, dict) else 5
+        item_rarity = item.get("rarity", "Common") if isinstance(item, dict) else "Common"
+
+        try:
+            cha = int(player_char.get_stats().get("cha", 0) or 0)
+        except Exception:
+            cha = 0
+
+        base_chance = (item_value / (self._toughness + 1)) * 100
+        chance = min(95, int(base_chance + cha * 3))
+        roll = random.randint(1, 100)
+        success = roll <= chance
+
+        print(f"Item bribe: item={item_display}, value={item_value}, toughness={self._toughness}, cha={cha}, chance={chance}%, roll={roll}, success={success}")
+
+        if success:
+            self._past_conversation.append(
+                f"Note: The player bribed the NPC with a {item_display} ({item_rarity}) and the NPC accepted, agreeing to let them pass."
+            )
+            self.update_npc(self._id, {"conversations": self._past_conversation})
+            narrative = call_ai(
+                f"Write one short paragraph describing {player_char._name} offering a {item_display} "
+                f"({item_rarity} quality) to {self._name} (described as: {self._description}), "
+                f"and {self._name} accepting it with interest, agreeing to let the player pass. "
+                f"Keep it in a fantasy/adventure tone."
+            )
+            from xp import award_xp
+            award_xp(userId, 150)
+            return narrative + f"<BR>{self._name} takes the {item_display} and steps aside. You may pass."
+        else:
+            self._past_conversation.append(
+                f"Note: The player tried to bribe the NPC with a {item_display} but the NPC refused and kept it."
+            )
+            self.update_npc(self._id, {"conversations": self._past_conversation})
+            narrative = call_ai(
+                f"Write one short paragraph describing {player_char._name} offering a {item_display} "
+                f"({item_rarity} quality) to {self._name} (described as: {self._description}), "
+                f"and {self._name} refusing — unimpressed or insulted by the offering. "
+                f"The NPC's toughness is {self._toughness}/100. Keep it in a fantasy/adventure tone."
+            )
+            return narrative + f"<BR>{self._name} keeps your {item_display} and blocks your path. (You had a {chance}% chance.)"
+
     def fight(self, userId):
         player_char = all_global_vars.get_player_character(userId)
         room_array = player_char.get_room_array()
