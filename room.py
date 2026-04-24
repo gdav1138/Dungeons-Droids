@@ -4,7 +4,7 @@ import os
 from bson import ObjectId
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
-from map_generator import generate_room_map
+from map_generator import generate_room_map, _classify_interior
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -12,6 +12,179 @@ load_dotenv()
 client = MongoClient(os.getenv('URI'))
 db = client["dungeons_droids"]
 room_collection = db["rooms"]
+
+# Props present in each room type and the actions players can perform on them.
+# loot_chance is the probability (0.0-1.0) of finding an item on search/break/open.
+# consumed=True means the prop disappears after a destructive action.
+_PROP_DEFS = {
+    "library": [
+        {"name": "bookshelf",     "actions": ["examine", "search", "read"],               "loot_chance": 0.3,  "consumed": False},
+        {"name": "reading table", "actions": ["examine", "search", "push"],               "loot_chance": 0.15, "consumed": False},
+        {"name": "candle",        "actions": ["examine", "light", "extinguish", "take"],  "loot_chance": 0.0,  "consumed": True},
+    ],
+    "crypt": [
+        {"name": "sarcophagus",   "actions": ["examine", "open", "push"],                 "loot_chance": 0.7,  "consumed": True,  "count": 2},
+        {"name": "altar",         "actions": ["examine", "search", "pray", "touch"],      "loot_chance": 0.4,  "consumed": False},
+        {"name": "candle",        "actions": ["examine", "light", "extinguish", "take"],  "loot_chance": 0.0,  "consumed": True,  "count": 3},
+        {"name": "cobweb",        "actions": ["examine", "clear", "touch"],               "loot_chance": 0.0,  "consumed": True,  "count": 2},
+    ],
+    "chapel": [
+        {"name": "altar",         "actions": ["examine", "pray", "search"],               "loot_chance": 0.35, "consumed": False},
+        {"name": "pew",           "actions": ["examine", "sit", "move", "search"],        "loot_chance": 0.1,  "consumed": False, "count": 4},
+        {"name": "torch",         "actions": ["examine", "take", "extinguish"],           "loot_chance": 0.0,  "consumed": True,  "count": 2},
+        {"name": "cross",         "actions": ["examine", "pray", "touch"],                "loot_chance": 0.0,  "consumed": False},
+    ],
+    "market": [
+        {"name": "market stall",  "actions": ["examine", "search", "browse"],             "loot_chance": 0.45, "consumed": False},
+        {"name": "well",          "actions": ["examine", "drink", "search", "throw coin"],"loot_chance": 0.2,  "consumed": False},
+    ],
+    "boiler": [
+        {"name": "boiler",        "actions": ["examine", "vent", "tamper", "touch"],      "loot_chance": 0.2,  "consumed": False},
+        {"name": "pipe",          "actions": ["examine", "bang", "unscrew"],              "loot_chance": 0.1,  "consumed": False},
+        {"name": "gear wheel",    "actions": ["examine", "turn", "remove"],               "loot_chance": 0.15, "consumed": True},
+        {"name": "steam vent",    "actions": ["examine", "block"],                        "loot_chance": 0.0,  "consumed": False},
+    ],
+    "tavern": [
+        {"name": "bar counter",   "actions": ["examine", "search", "lean on"],            "loot_chance": 0.25, "consumed": False},
+        {"name": "table",         "actions": ["examine", "search", "move"],               "loot_chance": 0.15, "consumed": False, "count": 2},
+        {"name": "chair",         "actions": ["examine", "sit", "throw", "move"],         "loot_chance": 0.0,  "consumed": False, "count": 3},
+        {"name": "barrel",        "actions": ["examine", "break", "search", "drink from"],"loot_chance": 0.4,  "consumed": True,  "count": 3},
+        {"name": "mug",           "actions": ["examine", "drink", "throw"],               "loot_chance": 0.0,  "consumed": True,  "count": 2},
+    ],
+    "throne": [
+        {"name": "throne",        "actions": ["examine", "sit", "search"],                "loot_chance": 0.3,  "consumed": False},
+        {"name": "pillar",        "actions": ["examine", "touch", "push"],                "loot_chance": 0.0,  "consumed": False},
+        {"name": "carpet",        "actions": ["examine", "search", "pull"],               "loot_chance": 0.2,  "consumed": False},
+    ],
+    "prison": [
+        {"name": "cell bars",     "actions": ["examine", "pull", "bend"],                 "loot_chance": 0.0,  "consumed": False},
+        {"name": "chains",        "actions": ["examine", "pull", "grab", "take"],         "loot_chance": 0.0,  "consumed": True},
+        {"name": "straw pile",    "actions": ["examine", "search", "hide in"],            "loot_chance": 0.35, "consumed": False},
+    ],
+    "laboratory": [
+        {"name": "workbench",     "actions": ["examine", "search", "use"],                "loot_chance": 0.4,  "consumed": False},
+        {"name": "flask",         "actions": ["examine", "drink", "throw"],               "loot_chance": 0.0,  "consumed": True},
+        {"name": "shelf",         "actions": ["examine", "search"],                       "loot_chance": 0.35, "consumed": False},
+        {"name": "alchemy circle","actions": ["examine", "touch", "stand in"],            "loot_chance": 0.0,  "consumed": False},
+    ],
+    "armory": [
+        {"name": "weapon rack",   "actions": ["examine", "search", "take from"],          "loot_chance": 0.5,  "consumed": False},
+        {"name": "armor stand",   "actions": ["examine", "search", "use"],                "loot_chance": 0.35, "consumed": False},
+        {"name": "shield",        "actions": ["examine", "take", "use"],                  "loot_chance": 0.0,  "consumed": True},
+    ],
+    "server": [
+        {"name": "server rack",   "actions": ["examine", "hack", "search", "unplug"],     "loot_chance": 0.45, "consumed": False},
+        {"name": "terminal",      "actions": ["examine", "hack", "use"],                  "loot_chance": 0.4,  "consumed": False},
+        {"name": "cable channel", "actions": ["examine", "cut", "pull"],                  "loot_chance": 0.15, "consumed": False},
+    ],
+    "treasury": [
+        {"name": "vault door",    "actions": ["examine", "open", "hack", "touch"],        "loot_chance": 0.0,  "consumed": False},
+        {"name": "chest",         "actions": ["examine", "open", "search", "break"],      "loot_chance": 0.85, "consumed": True},
+        {"name": "coin pile",     "actions": ["examine", "take from", "scatter"],         "loot_chance": 0.6,  "consumed": True},
+    ],
+    "generic": [
+        {"name": "barrel",        "actions": ["examine", "break", "search", "move"],      "loot_chance": 0.4,  "consumed": True,  "count": 3},
+        {"name": "crate",         "actions": ["examine", "break", "search", "move"],      "loot_chance": 0.4,  "consumed": True,  "count": 2},
+        {"name": "table",         "actions": ["examine", "search", "move"],               "loot_chance": 0.15, "consumed": False},
+        {"name": "torch",         "actions": ["examine", "take", "extinguish"],           "loot_chance": 0.0,  "consumed": True,  "count": 2},
+        {"name": "chest",         "actions": ["examine", "open", "search"],               "loot_chance": 0.6,  "consumed": True},
+    ],
+}
+
+# Extra actions available on specific inventory/room items beyond the universal "examine".
+_ITEM_EXTRA_ACTIONS = {
+    "torch":           ["light", "use", "extinguish"],
+    "rations":         ["eat"],
+    "ancient scroll":  ["read", "open"],
+    "old map":         ["read", "study"],
+    "sealed vial":     ["open", "drink"],
+    "oil flask":       ["use", "drink", "pour"],
+    "rope":            ["use", "throw"],
+    "rusty dagger":    ["use"],
+    "copper key":      ["use"],
+    "leather satchel": ["open", "search"],
+    "gemstone":        ["appraise"],
+    "bronze coin":     ["flip"],
+    "medkit":          ["use"],
+    "stim patch":      ["use", "apply"],
+    "data shard":      ["read", "hack", "use"],
+    "encrypted drive": ["read", "hack", "use"],
+    "neural jack":     ["use"],
+    "plasma cell":     ["use"],
+    "keycard":         ["use"],
+    "micro drone":     ["use", "launch"],
+    "synth fiber":     ["use", "throw"],
+    "wrench":          ["use"],
+    "brass compass":   ["use", "read"],
+    "steam crystal":   ["use"],
+    "pressure gauge":  ["read", "use"],
+    "cog token":       ["flip"],
+    "gear fragment":   ["use"],
+    "metal scrap":     ["use"],
+    "copper tube":     ["use"],
+    "credits chip":    ["use"],
+}
+
+
+def _remove_obj(cur_room, player_char, obj_src, obj_name):
+    """Remove an object from its source (room items or player inventory)."""
+    if obj_src == "room_item":
+        cur_room._items = [
+            i for i in cur_room._items
+            if (i.get("name") if isinstance(i, dict) else i) != obj_name
+        ]
+    elif obj_src == "inventory":
+        player_char.remove_item(obj_name)
+
+
+def _remove_one_prop(props, name):
+    """Remove only the first matching prop, leaving any duplicates intact."""
+    result, removed = [], False
+    for p in props:
+        if not removed and p["name"] == name:
+            removed = True
+        else:
+            result.append(p)
+    return result
+
+
+def _generate_loot_item(theme):
+    """Generate a random loot item appropriate for the given theme."""
+    theme_lower = (theme or "").lower()
+    if "cyber" in theme_lower:
+        pool = [
+            ("credits chip", "A small encoded chip worth a few credits."),
+            ("data shard", "Encrypted storage crystal."),
+            ("plasma cell", "Hums faintly with charge."),
+            ("stim patch", "Adhesive stimulant strip."),
+            ("medkit", "Sterile wraps and coagulant foam."),
+        ]
+    elif "steam" in theme_lower:
+        pool = [
+            ("cog token", "A brass token stamped with a gear emblem."),
+            ("gear fragment", "Jagged cog from a larger machine."),
+            ("sealed vial", "Opaque fluid, cool to touch."),
+            ("steam crystal", "A heat-resonant mineral shard."),
+            ("metal scrap", "Useful for patchwork repairs."),
+        ]
+    else:
+        pool = [
+            ("bronze coin", "Ancient coin, its face worn smooth."),
+            ("rations", "Dry but filling travel food."),
+            ("rusty dagger", "A pitted blade with a worn leather grip."),
+            ("old map", "Faded parchment with partial routes."),
+            ("torch", "Wrapped in pitch-soaked cloth."),
+        ]
+    name, desc = random.choice(pool)
+    rarity_table = [("Common", 0.6), ("Uncommon", 0.25), ("Rare", 0.12), ("Epic", 0.03)]
+    roll, acc, rarity = random.random(), 0.0, "Common"
+    for r, p in rarity_table:
+        acc += p
+        if roll <= acc:
+            rarity = r
+            break
+    value = random.randint(*{"Common": (1, 8), "Uncommon": (10, 30), "Rare": (40, 120), "Epic": (150, 400)}.get(rarity, (1, 8)))
+    return {"name": name, "desc": desc, "rarity": rarity, "value": value}
 
 class Room:
     def __init__(self, x_cord, y_cord, npc_factory=None):
@@ -23,6 +196,8 @@ class Room:
         self._room_pos_x = x_cord
         self._room_pos_y = y_cord
         self._items = []
+        self._props = []
+        self._interior_type = None
         self._room_identity = None
 
     def get_npc(self):
@@ -174,12 +349,26 @@ class Room:
             })
         self._items = items
 
-        # Update room with new description and items generated.
+        # Classify interior type and populate interactable props.
+        self._interior_type = _classify_interior(
+            (self._room_identity or "").lower(),
+            (self._description or "").lower(),
+        )
+        self._props = []
+        for p in _PROP_DEFS.get(self._interior_type, _PROP_DEFS["generic"]):
+            count = p.get("count", 1)
+            entry = {k: v for k, v in p.items() if k != "count"}
+            for _ in range(count):
+                self._props.append(dict(entry))
+
+        # Update room with new description, items, and props.
         self.update_room(self._id, {
             "description": self._description,
             "visited": True,
             "items": self._items,
-            "seed": self._seed
+            "seed": self._seed,
+            "props": self._props,
+            "interior_type": self._interior_type,
         })
 
     def store_room(self):
@@ -194,6 +383,8 @@ class Room:
             "x": self._room_pos_x,
             "y": self._room_pos_y,
             "items": self._items,
+            "props": self._props,
+            "interior_type": self._interior_type,
             "identity": self._room_identity,
         }
 
@@ -302,6 +493,8 @@ class room_holder:
         r._visited = bool(room_doc.get("visited", False))
         r._description = room_doc.get("description")
         r._items = room_doc.get("items") or []
+        r._props = room_doc.get("props") or []
+        r._interior_type = room_doc.get("interior_type")
         r._seed = room_doc.get("seed")
         r._room_identity = room_doc.get("identity")
         r._npc_id = room_doc.get("_npc_id")
@@ -370,12 +563,19 @@ class room_holder:
         items_here = getattr(cur_room, "_items", []) or []
         if items_here:
             def fmt(it):
-                if isinstance(it, dict):
-                    return it.get('name', '')
-                return str(it)
+                return it.get("name", "") if isinstance(it, dict) else str(it)
             ret_string += "<BR>Items here: " + ", ".join([fmt(x) for x in items_here])
         else:
             ret_string += "<BR>Items here: none"
+
+        props_here = getattr(cur_room, "_props", []) or []
+        if props_here:
+            counts = {}
+            for p in props_here:
+                counts[p["name"]] = counts.get(p["name"], 0) + 1
+            prop_strs = [f"{n} ×{c}" if c > 1 else n for n, c in counts.items()]
+            ret_string += "<BR>You can interact with: " + ", ".join(prop_strs)
+
         return ret_string
 
     def set_npc_factory(self, factory):
@@ -513,7 +713,175 @@ class room_holder:
         if not room or room._npc is None:
             return "There is no NPC here"
         return room.get_npc().fight(userId)
-    
+
+    def bribe_npc(self, userId, gold_amount):
+        room = self.get_current_room(userId)
+        if not room or room._npc is None:
+            return "There is no NPC here to bribe."
+        return room.get_npc().bribe(userId, gold_amount)
+
+    def bribe_npc_item(self, userId, item_name):
+        room = self.get_current_room(userId)
+        if not room or room._npc is None:
+            return "There is no NPC here to bribe."
+        return room.get_npc().bribe_with_item(userId, item_name)
+
+    def interact_environment(self, userId, action, target):
+        cur_room = self.get_current_room(userId)
+        if cur_room is None:
+            return "No room found."
+
+        player_char = all_global_vars.get_player_character(userId)
+        theme = player_char.get_theme() or "Medieval"
+        target_lower = target.lower().strip()
+
+        # Search props, then room items, then player inventory.
+        matched_prop = next(
+            (p for p in (getattr(cur_room, "_props", []) or [])
+             if target_lower in p["name"].lower() or p["name"].lower() in target_lower),
+            None,
+        )
+        matched_room_item = None
+        if not matched_prop:
+            matched_room_item = next(
+                (i for i in (getattr(cur_room, "_items", []) or [])
+                 if target_lower in (i.get("name", "") if isinstance(i, dict) else str(i)).lower()),
+                None,
+            )
+        matched_inv_item = None
+        if not matched_prop and not matched_room_item:
+            matched_inv_item = next(
+                (i for i in player_char.get_inventory()
+                 if target_lower in (i.get("name", "") if isinstance(i, dict) else str(i)).lower()),
+                None,
+            )
+
+        if not matched_prop and not matched_room_item and not matched_inv_item:
+            return f"You don't see any '{target}' here to {action}."
+
+        # Build object info
+        if matched_prop:
+            obj_name = matched_prop["name"]
+            obj_desc = f"a {obj_name} in the room"
+            valid_actions = matched_prop.get("actions", ["examine"])
+            loot_chance = matched_prop.get("loot_chance", 0.0)
+            consumed = matched_prop.get("consumed", False)
+            obj_src = "prop"
+        elif matched_room_item:
+            obj = matched_room_item
+            obj_name = obj.get("name", target) if isinstance(obj, dict) else str(obj)
+            obj_desc = obj.get("desc", f"a {obj_name}") if isinstance(obj, dict) else f"a {obj_name}"
+            valid_actions = ["examine"] + _ITEM_EXTRA_ACTIONS.get(obj_name.lower(), [])
+            loot_chance, consumed = 0.0, False
+            obj_src = "room_item"
+        else:
+            obj = matched_inv_item
+            obj_name = obj.get("name", target) if isinstance(obj, dict) else str(obj)
+            obj_desc = obj.get("desc", f"a {obj_name}") if isinstance(obj, dict) else f"a {obj_name}"
+            valid_actions = ["examine"] + _ITEM_EXTRA_ACTIONS.get(obj_name.lower(), [])
+            loot_chance, consumed = 0.0, False
+            obj_src = "inventory"
+
+        # "examine" always works on anything found.
+        if action not in valid_actions and action != "examine":
+            return (f"You can't {action} the {obj_name}.<BR>"
+                    f"You can: {', '.join(valid_actions)}.")
+
+        # ── Mechanical effects ────────────────────────────────────────────────
+        effect_text = ""
+        loot_found = None
+        modified = False
+
+        # Eating / drinking consumables
+        if action == "eat" and obj_src in ("room_item", "inventory"):
+            heal = 10
+            player_char._health = min(100, player_char._health + heal)
+            _remove_obj(cur_room, player_char, obj_src, obj_name)
+            effect_text = f"+{heal} HP"
+            modified = True
+
+        elif action == "drink" and obj_src in ("room_item", "inventory", "prop"):
+            if random.random() < 0.7:
+                heal = random.randint(8, 20)
+                player_char._health = min(100, player_char._health + heal)
+                effect_text = f"+{heal} HP"
+            else:
+                dmg = random.randint(5, 15)
+                player_char._health = max(1, player_char._health - dmg)
+                effect_text = f"-{dmg} HP (tasted awful)"
+            if obj_src != "prop":
+                _remove_obj(cur_room, player_char, obj_src, obj_name)
+            modified = True
+
+        elif action == "use" and "medkit" in obj_name.lower():
+            heal = 25
+            player_char._health = min(100, player_char._health + heal)
+            _remove_obj(cur_room, player_char, obj_src, obj_name)
+            effect_text = f"+{heal} HP"
+            modified = True
+
+        elif action in ("use", "apply") and "stim" in obj_name.lower():
+            heal = 15
+            player_char._health = min(100, player_char._health + heal)
+            _remove_obj(cur_room, player_char, obj_src, obj_name)
+            effect_text = f"+{heal} HP"
+            modified = True
+
+        # Loot-generating actions on props
+        elif obj_src == "prop" and action in ("break", "smash", "open", "search", "loot",
+                                               "hack", "take from", "rummage through",
+                                               "rummage in", "browse"):
+            if loot_chance > 0 and random.random() < loot_chance:
+                loot_found = _generate_loot_item(theme)
+                cur_room._items.append(loot_found)
+                effect_text = f"You find a {loot_found['name']} ({loot_found['rarity']})!"
+            else:
+                effect_text = "Nothing of value here."
+            if consumed or action in ("break", "smash", "open"):
+                cur_room._props = _remove_one_prop(cur_room._props, obj_name)
+            modified = True
+
+        # Taking a prop (torch, chain, shield…)
+        elif obj_src == "prop" and action == "take":
+            item = {"name": obj_name, "desc": obj_desc, "rarity": "Common", "value": 1}
+            player_char.add_item(item)
+            cur_room._props = _remove_one_prop(cur_room._props, obj_name)
+            effect_text = f"{obj_name} added to inventory."
+            modified = True
+
+        # Persist if state changed
+        if modified:
+            self.persist_room(userId, player_char)
+            user_doc = user_db.get_user_by_id(userId)
+            char_id = user_doc.get("_player_character_id") if user_doc else None
+            if char_id:
+                player_char.update_player_character(char_id)
+                cur_room_doc_id = getattr(cur_room, "_id", None)
+                if cur_room_doc_id:
+                    cur_room.update_room(cur_room_doc_id, {
+                        "items": list(getattr(cur_room, "_items", [])),
+                        "props": list(getattr(cur_room, "_props", [])),
+                    })
+
+        # ── AI narration ─────────────────────────────────────────────────────
+        room_snippet = (cur_room._description or "")[:300]
+        npc = cur_room.get_npc()
+        npc_note = f" An NPC named {npc.get_name()} is present." if npc else ""
+        result_note = effect_text if effect_text else "No special result — describe the sensory experience."
+
+        prompt = (
+            f"Theme: {theme}. Room: {room_snippet}{npc_note}\n"
+            f"The player performs '{action}' on the {obj_name} ({obj_desc}).\n"
+            f"Result: {result_note}\n"
+            f"Write 2-3 sentences narrating this in an immersive, theme-appropriate way. "
+            f"Weave the result naturally into the description. No lists, no headings."
+        )
+        narrative = call_ai(prompt)
+
+        if effect_text:
+            return f"{narrative}<BR><em>({effect_text})</em>"
+        return narrative
+
     def move_current_room_npc(self, userId, direction=None):
         cur_room = self.get_current_room(userId)
         if cur_room is None:

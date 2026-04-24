@@ -3,7 +3,6 @@
 # a userId. Since each web request is separate, it has to remember where in the program it is,
 # which is the section portion, with get_section and set_section to say where in the program that user
 # is. There's also a mainloop section that leads to another file.
-from openai import OpenAI
 from dotenv import load_dotenv
 from all_global_vars import all_global_vars
 from open_ai_api import call_ai
