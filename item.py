@@ -235,3 +235,4 @@ def default_items(theme, seed_value):
         })
 
     return items
+
