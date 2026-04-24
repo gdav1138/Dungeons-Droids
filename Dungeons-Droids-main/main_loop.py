@@ -1,0 +1,260 @@
+# The main gameplay loop. It has access to all the global variables, and has
+# the input the user typed in (userInput) and has to return a string that it
+# wants to display to the user. A few commands have been implemented as
+# examples.
+
+from all_global_vars import all_global_vars
+from humanoid import Npc
+import hello
+
+# Sorted longest-first so multi-word phrases are matched before single words.
+_INTERACT_VERBS = sorted([
+    "rummage through", "rummage in", "take from", "lean on", "sit on",
+    "sit in", "look at", "pull back", "drink from", "stand in",
+    "examine", "inspect", "search", "loot", "use", "break", "smash",
+    "destroy", "read", "study", "eat", "drink", "hack", "light", "open",
+    "throw", "pull", "push", "touch", "pray", "extinguish", "turn",
+    "vent", "tamper", "bang", "bend", "scatter", "appraise", "launch",
+    "cut", "unplug", "unscrew", "remove", "sit", "flip", "pour",
+    "apply", "browse", "block", "clear", "grab",
+], key=len, reverse=True)
+
+
+def _format_inventory(inv_list):
+    if not inv_list:
+        return "Inventory: (empty)<BR>"
+    lines = ["Inventory:"]
+    for item in inv_list:
+        lines.append(f"- {item}")
+    return "<BR>".join(lines) + "<BR>"
+
+
+def _brief_room_view(room_array, userId):
+    """Return only map + minimap + item names (no long description)."""
+    # Generate/refresh map and minimap
+    room_array.get_full_description(userId)
+
+    cur_room = room_array.get_current_room(userId)
+    parts = []
+    if cur_room and getattr(cur_room, "_map_html", None):
+        parts.append(cur_room._map_html)
+
+    try:
+        world = room_array.render_minimap(userId)
+        parts.append(f'<div data-role="worldmap">{world}</div>')
+    except Exception:
+        pass
+
+    items = room_array.list_items(userId) if hasattr(room_array, "list_items") else []
+
+    def _iname(it):
+        if isinstance(it, dict):
+            return it.get("name", "")
+        return str(it)
+
+    if items:
+        parts.append("Items here: " + ", ".join(_iname(i) for i in items))
+    else:
+        parts.append("Items here: none")
+
+    return "<BR>".join(parts)
+
+
+def do_main_loop(userInput, userId):
+    userInput = userInput.lower()
+    # Handle empty/None input by showing current room
+    if userInput == "none" or userInput == "":
+        return all_global_vars.get_player_character(userId).get_room_array().get_full_description(
+            userId
+        )
+    if userInput == "restart":
+        print("userInput == restart")
+        return hello.restart_game(userId)
+    if userInput == 'help':
+        return (
+            "Valid Commands:<BR>Restart - Restarts the game<BR>"
+            + "Help - this menu<BR>"
+            + "north, south, east, west - Move to a new location<BR>"
+            + "describe npc - describes the npc in the room<BR>"
+            + "move npc [north|south|east|west] - tell the NPC to move (omit direction for random)<BR>"
+            + "inventory (i) - show your items<BR>"
+            + "pickup/take <item> - pick up an item here<BR>"
+            + "drop <item> - drop an item from inventory<BR>"
+            + "fight npc - fights the npc<BR>"
+            + "bribe npc <amount> - offer gold to bribe the NPC into letting you pass<BR>"
+            + "offer npc <item> - offer an item from your inventory as a bribe<BR>"
+            + "examine/search/use/break/sit/read/eat/drink/hack <thing> - interact with room features or items"
+        )
+
+    # Inventory view
+    if userInput in ("inventory", "inv", "i"):
+        pc = all_global_vars.get_player_character(userId)
+        inv = pc.get_inventory()
+        return _format_inventory(inv) + f"Gold: {pc.get_gold()}<BR>"
+
+    # Prepare current room_array for user action
+    player_char = all_global_vars.get_player_character(userId)
+    room_array = player_char.get_room_array()
+
+    # Pick up
+    for prefix in ("take ", "pickup ", "pick up ", "grab "):
+        if userInput.startswith(prefix):
+            item = userInput[len(prefix):].strip()
+            if not item:
+                return "Specify what to pick up.<BR>"
+            success, info = room_array.pickup_item(userId, item, player_char)
+            if success:
+                from xp import award_xp
+
+                award_xp(userId, 50)
+                # Check if item is a coin — add value to gold instead of keeping in inventory
+                picked = player_char.get_inventory()[-1] if player_char.get_inventory() else None
+                _COIN_NAMES = {"bronze coin", "silver coin", "gold coin", "coin", "credits chip", "cog token"}
+                if picked and isinstance(picked, dict) and picked.get("name", "").lower() in _COIN_NAMES:
+                    player_char.remove_item(picked.get("name"))
+                    player_char.add_gold(picked.get("value", 1))
+                    gold_msg = f"You picked up {info} (+{picked.get('value', 1)} gold).<BR>"
+                else:
+                    gold_msg = f"You picked up {info}.<BR>"
+                room_array.persist_room(userId, player_char)
+                from user_db import get_user_by_id
+                user_doc = get_user_by_id(userId)
+                char_id = user_doc.get("_player_character_id") if user_doc else None
+                if char_id:
+                    player_char.update_player_character(char_id)
+                refreshed = _brief_room_view(room_array, userId)
+                return gold_msg + refreshed
+            return info + "<BR>"
+
+    # Drop
+    if userInput.startswith("drop "):
+        item = userInput[len("drop "):].strip()
+        if not item:
+            return "Specify what to drop.<BR>"
+        success, info = room_array.drop_item(userId, item, player_char)
+        if success:
+            room_array.persist_room(userId, player_char)
+            from user_db import get_user_by_id
+
+            user_doc = get_user_by_id(userId)
+            char_id = user_doc.get("_player_character_id") if user_doc else None
+            if char_id:
+                player_char.update_player_character(char_id)
+            refreshed = _brief_room_view(room_array, userId)
+            return f"You dropped {info}.<BR>{refreshed}"
+        return info + "<BR>"
+    if userInput == 'look':
+        return room_array.get_full_description(userId)
+    if userInput == 'north':
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_north(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
+    if userInput == 'south':
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_south(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
+    if userInput == 'east':
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_east(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
+    if userInput == 'west':
+        if room_array.get_current_room(userId).get_npc() is None:
+            okay_to_move, npc_response = True, ""
+        else:
+            okay_to_move, npc_response = check_direction_for_npc(userId, room_array)
+        if okay_to_move:
+            response = room_array.move_west(userId)
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+            return (npc_response + "<BR>" + response) if npc_response else response
+        else:
+            return npc_response
+    if userInput == "describe npc":
+        return room_array.describe_npc(userId)
+    if userInput.startswith("say"):
+        return room_array.talk_to_npc(userId, userInput[3:])
+    if userInput == "fight npc":
+        return room_array.fight_npc(userId)
+    if userInput.startswith("bribe npc"):
+        amount_str = userInput[len("bribe npc"):].strip()
+        if not amount_str.isdigit() or int(amount_str) <= 0:
+            gold = all_global_vars.get_player_character(userId).get_gold()
+            return f"Specify an amount of gold to offer. You have {gold} gold. Usage: bribe npc <amount>"
+        return room_array.bribe_npc(userId, int(amount_str))
+    if userInput.startswith("offer npc "):
+        item_name = userInput[len("offer npc "):].strip()
+        if not item_name:
+            return "Specify an item to offer. Usage: offer npc <item name><BR>"
+        result = room_array.bribe_npc_item(userId, item_name)
+        from user_db import get_user_by_id
+        user_doc = get_user_by_id(userId)
+        char_id = user_doc.get("_player_character_id") if user_doc else None
+        if char_id:
+            player_char.update_player_character(char_id)
+        return result
+    if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
+        direction = None
+        if userInput.startswith("move npc"):
+            direction_text = userInput[len("move npc"):].strip()
+            if direction_text:
+                direction = direction_text
+        else:
+            direction_text = userInput[len("tell npc to move"):].strip()
+            if direction_text:
+                direction = direction_text
+
+        if direction and direction not in ("north", "south", "east", "west"):
+            return "Use: move npc [north|south|east|west]<BR>"
+
+        moved, message = room_array.move_current_room_npc(userId, direction=direction)
+        if moved:
+            room_array.persist_room(userId, all_global_vars.get_player_character(userId))
+        return message + "<BR>"
+    if userInput.startswith("version"):
+        return all_global_vars.get_version(userId)
+
+    # Generic interaction verbs — must come last so specific commands above take priority.
+    for verb in _INTERACT_VERBS:
+        if userInput == verb or userInput.startswith(verb + " "):
+            target = userInput[len(verb):].strip()
+            if not target:
+                return f"What do you want to {verb}?<BR>"
+            return room_array.interact_environment(userId, verb, target)
+
+    return "Invalid input. Type help for options."
+
+def check_direction_for_npc(userId, room_array):
+    print("1")
+    print("room_array: ", room_array)
+    print("2")
+    try:
+        can_pass = room_array.check_pass_npc(userId)
+    except Exception as e:
+        print("ERROR in check_pass_npc:", repr(e))
+        raise
+    #can_pass = room_array.check_pass_npc(userId)
+    print("Can pass: " + str(can_pass))
+    if can_pass:
+        return True, "The NPC lets you exit the room"
+    else:
+        return False, "The NPC blocks your exit"

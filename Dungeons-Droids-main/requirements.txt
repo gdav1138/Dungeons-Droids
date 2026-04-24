@@ -1,0 +1,7 @@
+flask
+anthropic
+python-dotenv
+pymongo
+bcrypt
+pillow
+pytest>=7.0.0
