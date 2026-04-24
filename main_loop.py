@@ -28,6 +28,24 @@ def _format_inventory(inv_list):
         lines.append(f"- {item}")
     return "<BR>".join(lines) + "<BR>"
 
+def _format_equipment(equipment):
+    lines = ["Equipment:"]
+    for slot, item in equipment.items():
+        if item is None:
+            lines.append(f" {slot.capitalize()}: (empty)")
+        elif isinstance(item, dict):
+            name = item.get("name", "Unknown")
+            stats = []
+            if "damage" in item:
+                stats.append(f"+{item['damage']} damage")
+            if "armor" in item:
+                stats.append(f"+{item['armor']} defense")
+            stat_str = f" ({', '.join(stats)})" if stats else ""
+            lines.append(f" {slot.capitalize()}: {name}{stat_str}")
+        else:
+            lines.append(f" {slot.capitalize()}: {item}")
+    return "<BR>".join(lines) + "<BR>"
+
 
 def _brief_room_view(room_array, userId):
     """Return only map + minimap + item names (no long description)."""
@@ -59,6 +77,16 @@ def _brief_room_view(room_array, userId):
 
     return "<BR>".join(parts)
 
+def _persist_character(userId, player_char):
+    from user_db import get_user_by_id
+    user_doc = get_user_by_id(userId)
+    if user_doc:
+        char_id = user_doc.get("_player_character_id")
+    else:
+        char_id = None
+
+    if char_id:
+        player_char.update_player_character(char_id)
 
 def do_main_loop(userInput, userId):
     userInput = userInput.lower()
@@ -78,6 +106,9 @@ def do_main_loop(userInput, userId):
             + "describe npc - describes the npc in the room<BR>"
             + "move npc [north|south|east|west] - tell the NPC to move (omit direction for random)<BR>"
             + "inventory (i) - show your items<BR>"
+            + "equipment (eq) - show equipped items<BR>"
+            + "equip <item> - equip a weapon or armor from inventory<BR>"
+            + "unequip <slot> - remove a weapon or armor<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
             + "fight npc - fights the npc<BR>"
@@ -92,9 +123,34 @@ def do_main_loop(userInput, userId):
         inv = pc.get_inventory()
         return _format_inventory(inv) + f"Gold: {pc.get_gold()}<BR>"
 
+    # Equipment view
+    if userInput in ("equipment", "eq"):
+        equipment = all_global_vars.get_player_character(userId).get_equipment()
+        return _format_equipment(equipment)
+
     # Prepare current room_array for user action
     player_char = all_global_vars.get_player_character(userId)
     room_array = player_char.get_room_array()
+
+    # Equip item
+    if userInput.startswith("equip "):
+        item_name = userInput[len("equip "):].strip()
+        if not item_name:
+            return "Specify an item to equip.<BR>"
+        success, message = player_char.equip(item_name)
+        if success:
+            _persist_character(userId, player_char)
+        return message + "<BR>"
+
+    # Unequip item
+    if userInput.startswith("unequip "):
+        slot_name = userInput[len("unequip "):].strip()
+        if not slot_name:
+            return "Specify an slot (weapon/armor) to unequip.<BR>"
+        success, message = player_char.equip(slot_name)
+        if success:
+            _persist_character(userId, player_char)
+        return message + "<BR>"
 
     # Pick up
     for prefix in ("take ", "pickup ", "pick up ", "grab "):

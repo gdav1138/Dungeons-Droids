@@ -16,6 +16,10 @@ db = client["dungeons_droids"]
 char_collection = db["characters"]
 npc_collection = db["npcs"]
 
+EQUIP_SLOTS = {
+    "weapon": "weapon",
+    "armor": "armor"
+}
 
 class Humanoid:
     """
@@ -33,6 +37,10 @@ class Humanoid:
         self._int = None
         self._dex = None
         self._inventory = []
+        self._equipment = {
+            "weapon": None,
+            "armor": None
+        }
 
     def get_name(self):
         return self._name
@@ -45,6 +53,22 @@ class Humanoid:
 
     def get_inventory(self):
         return list(self._inventory)
+
+    def get_equipment(self):
+        return dict(self._equipment)
+
+    def get_weapon(self):
+        return self._equipment.get("weapon")
+
+    def get_armor(self):
+        return self._equipment.get("armor")
+
+    def get_equipment_bonus(self, stat):
+        total = 0
+        for slot, item in self._equipment.items():
+            if item and isinstance(item, dict):
+                total += item.get(stat,0)
+        return total
 
     def set_name(self, name_to_set):
         self._name = name_to_set
@@ -66,6 +90,79 @@ class Humanoid:
             if isinstance(val, str) and val.lower() == item_name.lower():
                 return self._inventory.pop(idx)
         return None
+
+    def equip(self, item_name):
+        """
+        Equip an item from inventory. Finds an item in the inventory, checks the item type to
+        ensure it can be quipped, if the slot is occupied by another item, swaps the two, placing
+        the old item back into the inventory and removing the newly equipped item from inventory
+        into the equipment slot.
+
+        Args: item_name -> name of the item to be equipped
+
+        Returns: bool -> success, message -> str.
+        """
+        if not item_name:
+            return False, "Please choose an item to equip."
+
+        item = None
+        item_id = None
+        for id, val in enumerate(self._inventory):
+            if isinstance(val, dict) and val.get("name", "").lower() == item_name.lower():
+                item = val
+                item_id = id
+                break
+            if isinstance(val, str) and val.lower() == item_name.lower():
+                return False, f"{item_name} is not a valid item to be equipped."
+
+        item_type = item.get("type", "")
+        slot = None
+        for slot_name, required_type in EQUIP_SLOTS.items():
+            if item_type == required_type:
+                slot = slot_name
+                break
+        if slot is None:
+            return False, f"{item.get('name', item_name)} is not an equippable item."
+
+        self._inventory.pop(item_id)
+
+        old_item = self._equipment.get(slot)
+        if old_item is not None:
+            self._inventory.append(old_item)
+
+        self._equipment[slot] = item
+
+        equip_success = f"Equipped {item.get('name', item_name)} in {slot} slot."
+        if old_item:
+            old_name = old_item.get("name", "item") if isinstance(old_item, dict) else str(old_item)
+            equip_success += f" (Placed {old_name} back into inventory.)"
+
+        return True, equip_success
+
+    def unequip(self, slot_name):
+        """
+        Unequip an item from its equipment slot and place it back into the inventory
+
+        Returns: bool -> success, message -> str
+        """
+        if not slot_name:
+            return False, "Specify a slot to unequip (weapon or armor)."
+
+        slot = slot_name.strip().lower()
+        if slot not in self._equipment:
+            return False, f"'{slot_name}' is not a valid equipment slot. Use: weapon, armor."
+
+        # Get item currently in equipment slot
+        item = self._equipment.get(slot)
+        if item is None:
+            return False, f"Noting is equipped in the {slot} slot."
+
+        # Move item back into inventory
+        self._equipment[slot] = None
+        self._inventory.append(item)
+
+        item_name = item.get("name", "item") if isinstance(item, dict) else str(item)
+        return True, f"Unequipped {item_name} from {slot} slot and returned it to inventory."
 
     def level_up(self):
         self._level += 1
@@ -239,6 +336,7 @@ class PlayerCharacter(Humanoid):
             "rooms_visited": self._rooms.to_dict(),
             "world_map": self._world_map,
             "inventory": list(self._inventory),
+            "equipment": dict(self._equipment)
         }
 
         result = char_collection.insert_one(char_doc)
@@ -274,6 +372,7 @@ class PlayerCharacter(Humanoid):
             "rooms_visited": self._rooms.to_dict(),
             "world_map": self._world_map,
             "inventory": list(self._inventory),
+            "equipment": dict(self._equipment)
         }
 
         result = char_collection.update_one({"_id": charId}, {"$set": update_doc})
@@ -309,6 +408,13 @@ class PlayerCharacter(Humanoid):
         returning_character._theme = character_doc.get("theme")
         returning_character._inventory = character_doc.get("inventory", []) or []
         returning_character._world_map = character_doc.get("world_map", []) or []
+
+        saved_equipment = character_doc.get("equipment")
+        if isinstance(saved_equipment, dict):
+            returning_character._equipment = {
+                "weapon": saved_equipment.get("weapon"),
+                "armor": saved_equipment.get("armor")
+            }
 
         rooms_doc = character_doc.get("rooms_visited")
         returning_character._rooms = returning_character._rooms.from_dict(rooms_doc) if rooms_doc else room_holder()
@@ -597,12 +703,16 @@ class Npc(Humanoid):
 
     def fight(self, userId):
         player_char = all_global_vars.get_player_character(userId)
+        weapon_bonus = player_char.get_equipment_bonus("damage")
+        armor_bonus = player_char.get_equipment_bonus("armor")
         room_array = player_char.get_room_array()
         cur_room = room_array.get_current_room(userId)
 
-        winchance = random.randint(0,110)
+        winchance = random.randint(0, 110)
         winchance += player_char._str * 2
         winchance += player_char._dex * 2
+        winchance += weapon_bonus * 3
+        winchance += armor_bonus * 2
         
         if self._toughness > winchance:
             playerWins = False
@@ -628,12 +738,13 @@ class Npc(Humanoid):
                 npc_collection.delete_one({"_id": mongo_id})
             except Exception as e:
                 print("Warning: failed to delete npc doc:", e)
-        fight_response = call_ai(f"Describe a fight between the player and the npc. The player's name is"
-                                 +f"{player_char._name} and the NPC's name is {self._name} and the NPCs "
-                                 +f"description is {self._description}. The NPCs friendliness is"
-                                 +f"{self._friendlyness} out of 100, and the NPCs toughness is {self._toughness} "
-                                 +f"out of 100. The the player winning is {playerWins}. This fight is to the death, "
-                                 +f"so if player winning is true then the npc dies, if player winning is false the player dies")
+        fight_response = call_ai("Describe a fight between the player and the npc. The player's name is"
+                                 + f"{player_char._name} and the NPC's name is {self._name} and the NPCs "
+                                 + f"description is {self._description}. The NPCs friendliness is"
+                                 + f"{self._friendlyness} out of 100, and the NPCs toughness is {self._toughness} "
+                                 + f"out of 100. The the player winning is {playerWins}. This fight is to the death, "
+                                 + "so if player winning is true then the npc dies, "
+                                 + "if player winning is false the player dies")
         
         if playerWins is False:
             print ("Playerwins false, restarting")
