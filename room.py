@@ -1,6 +1,7 @@
 import random
 import user_db
 import os
+from item import get_ai_items
 from bson import ObjectId
 from open_ai_api import call_ai
 from all_global_vars import all_global_vars
@@ -186,6 +187,7 @@ def _generate_loot_item(theme):
     value = random.randint(*{"Common": (1, 8), "Uncommon": (10, 30), "Rare": (40, 120), "Epic": (150, 400)}.get(rarity, (1, 8)))
     return {"name": name, "desc": desc, "rarity": rarity, "value": value}
 
+
 class Room:
     def __init__(self, x_cord, y_cord, npc_factory=None):
         self._description = "Not Generated Yet"
@@ -269,99 +271,12 @@ class Room:
         random.seed(seed_key)
 
         theme_lower = (all_global_vars.get_player_character(userId).get_theme() or "").lower()
-        if "cyber" in theme_lower:
-            base_items = [
-                ("credits chip", "A small encoded chip worth a few credits."),
-                ("data shard", "Encrypted storage crystal."),
-                ("plasma cell", "Hums faintly with charge."),
-                ("medkit", "Sterile wraps and coagulant foam."),
-                ("neural jack", "A small cortex interface plug."),
-                ("encrypted drive", "Locked storage device, data unknown."),
-                ("stim patch", "Adhesive stimulant strip."),
-                ("keycard", "A magnetic access card, lightly scratched."),
-                ("synth fiber", "A coil of high-tensile synthetic cord."),
-                ("micro drone", "A palm-sized recon drone, damaged."),
-            ]
-        elif "steam" in theme_lower:
-            base_items = [
-                ("cog token", "A brass token stamped with a gear emblem."),
-                ("gear fragment", "Jagged cog from a larger machine."),
-                ("metal scrap", "Useful for patchwork repairs."),
-                ("oil flask", "Stoppered flask of machine oil."),
-                ("sealed vial", "Opaque fluid, cool to touch."),
-                ("copper tube", "A short length of pressure-rated piping."),
-                ("wrench", "A heavy iron spanner, well-worn."),
-                ("pressure gauge", "Cracked glass dial, still functional."),
-                ("brass compass", "Engraved compass with a spinning needle."),
-                ("steam crystal", "A heat-resonant mineral shard."),
-            ]
-        else:  # Medieval
-            base_items = [
-                ("bronze coin", "Ancient coin, its face worn smooth."),
-                ("rusty dagger", "A pitted blade with a worn leather grip."),
-                ("leather satchel", "A weathered satchel with a broken clasp."),
-                ("torch", "Wrapped in pitch-soaked cloth."),
-                ("old map", "Faded parchment with partial routes."),
-                ("copper key", "Small key etched with runes."),
-                ("rations", "Dry but filling travel food."),
-                ("rope", "Coiled hemp rope, 30ft."),
-                ("gemstone", "Uncut gem catching stray light."),
-                ("ancient scroll", "Sealed with brittle wax."),
-            ]
 
-        rarity_table = [
-            ("Common", 1.0),
-            ("Uncommon", 0.4),
-            ("Rare", 0.18),
-            ("Epic", 0.08),
-            ("Legendary", 0.02),
-        ]
-
-        def pick_rarity():
-            r = random.random()
-            acc = 0.0
-            for name, prob in rarity_table:
-                acc += prob
-                if r <= acc:
-                    return name
-            return "Common"
-
-        def item_value(rarity):
-            base = {
-                "Common": (1, 8),
-                "Uncommon": (10, 30),
-                "Rare": (40, 120),
-                "Epic": (150, 400),
-                "Legendary": (500, 1200),
-            }.get(rarity, (1, 8))
-            return random.randint(*base)
-
-        item_count = random.randint(2, 4)
-        chosen = random.sample(base_items, item_count)
-        items = []
-        for name, desc in chosen:
-            rarity = pick_rarity()
-            items.append({
-                "name": name,
-                "rarity": rarity,
-                "value": item_value(rarity),
-                "desc": desc,
-            })
+        # Get a list of items
+        items = get_ai_items(theme_lower, self._description, self._room_identity, random)
         self._items = items
 
-        # Classify interior type and populate interactable props.
-        self._interior_type = _classify_interior(
-            (self._room_identity or "").lower(),
-            (self._description or "").lower(),
-        )
-        self._props = []
-        for p in _PROP_DEFS.get(self._interior_type, _PROP_DEFS["generic"]):
-            count = p.get("count", 1)
-            entry = {k: v for k, v in p.items() if k != "count"}
-            for _ in range(count):
-                self._props.append(dict(entry))
-
-        # Update room with new description, items, and props.
+        # Update room with new description and items generated.
         self.update_room(self._id, {
             "description": self._description,
             "visited": True,
