@@ -11,8 +11,11 @@ rehydrated back into a player character.
         "description": <str>,
         "quest_giver": <str>,   # NPC name
         "reward_description": <str>,
+        "reward_xp": <int>,
+        "reward_gold": <int>,
         "status": "active" | "completed",
         "progress": <int>,      # generic progress counter (0+)
+        "rewarded": <bool>,     # reward granted (prevents double payout)
     }
 
 Win conditions:
@@ -57,7 +60,9 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
             f"Theme: {theme}. Return when the task is done."
         )
         target = count
-        reward = "a reward fitting your bravery"
+        reward_xp = 20 * count
+        reward_gold = 10 * count
+        reward = f"{reward_xp} XP and {reward_gold} gold"
 
     elif quest_type == QUEST_OBTAIN_ITEM:
         item_name = random.choice(QUEST_ITEMS)
@@ -66,7 +71,9 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
             f"Theme: {theme}. They need it for their own reasons."
         )
         target = item_name
-        reward = "payment and their gratitude"
+        reward_xp = 60
+        reward_gold = 75
+        reward = f"{reward_xp} XP and {reward_gold} gold"
 
     else:  # QUEST_OBTAIN_GOLD
         amount = random.choice([50, 100, 200, 500])
@@ -75,7 +82,9 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
             f"Theme: {theme}. They have a debt to settle."
         )
         target = amount
-        reward = "a share of the proceeds and a favor"
+        reward_xp = 50
+        reward_gold = max(10, int(amount * 0.2))
+        reward = f"{reward_xp} XP and {reward_gold} gold"
 
     return {
         "id": quest_id,
@@ -84,9 +93,12 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
         "description": description,
         "quest_giver": quest_giver_name,
         "reward_description": reward,
+        "reward_xp": int(reward_xp),
+        "reward_gold": int(reward_gold),
         # Progress / state fields
         "status": "active",
         "progress": 0,
+        "rewarded": False,
     }
 
 

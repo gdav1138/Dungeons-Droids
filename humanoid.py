@@ -171,6 +171,7 @@ class PlayerCharacter(Humanoid):
             q["progress"] = current
             if current >= target and target > 0:
                 q["status"] = "completed"
+                self._award_quest_rewards_if_needed(q)
 
     def record_item_obtained(self, item_obj):
         """Record that an item was obtained; may complete obtain-item quests."""
@@ -196,6 +197,7 @@ class PlayerCharacter(Humanoid):
             if name == target_name:
                 q["progress"] = 1
                 q["status"] = "completed"
+                self._award_quest_rewards_if_needed(q)
 
     def _update_gold_quests(self):
         """Internal helper to check obtain-gold quests whenever gold changes."""
@@ -215,6 +217,7 @@ class PlayerCharacter(Humanoid):
             if self._gold >= target:
                 q["progress"] = max(int(q.get("progress", 0) or 0), target)
                 q["status"] = "completed"
+                self._award_quest_rewards_if_needed(q)
 
     def get_room_array(self):
         return self._rooms
@@ -296,12 +299,33 @@ class PlayerCharacter(Humanoid):
         self._world_map.append({"x": x, "y": y, "room_id": room_id})
 
     def earned_exp(self, new_exp):
-        current_exp = self.get_current_exp()
-        current_exp += new_exp
-        if current_exp >= 100:
-            current_exp = current_exp - 100
-            self.set_exp(current_exp)
+        current_exp = int(self.get_current_exp() or 0)
+        current_exp += int(new_exp or 0)
+        while current_exp >= 100:
+            current_exp -= 100
             self.level_up()
+        self.set_exp(current_exp)
+
+    def _award_quest_rewards_if_needed(self, q: dict):
+        """Grant quest rewards exactly once for a completed quest."""
+        if not q or not isinstance(q, dict):
+            return
+        if (q.get("status") or "active") != "completed":
+            return
+        if bool(q.get("rewarded")):
+            return
+
+        reward_xp = int(q.get("reward_xp", 0) or 0)
+        reward_gold = int(q.get("reward_gold", 0) or 0)
+
+        if reward_xp > 0:
+            self.earned_exp(reward_xp)
+        if reward_gold > 0:
+            # Award directly to avoid re-triggering obtain-gold quests.
+            self._gold += reward_gold
+            self._update_gold_quests()
+
+        q["rewarded"] = True
 
     def store_player_character(self):
         """
