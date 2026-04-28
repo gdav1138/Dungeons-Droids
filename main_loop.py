@@ -8,12 +8,43 @@ from humanoid import Npc
 import hello
 from quests import format_quest_for_display
 
+# Sorted longest-first so multi-word phrases are matched before single words.
+_INTERACT_VERBS = sorted([
+    "rummage through", "rummage in", "take from", "lean on", "sit on",
+    "sit in", "look at", "pull back", "drink from", "stand in",
+    "examine", "inspect", "search", "loot", "use", "break", "smash",
+    "destroy", "read", "study", "eat", "drink", "hack", "light", "open",
+    "throw", "pull", "push", "touch", "pray", "extinguish", "turn",
+    "vent", "tamper", "bang", "bend", "scatter", "appraise", "launch",
+    "cut", "unplug", "unscrew", "remove", "sit", "flip", "pour",
+    "apply", "browse", "block", "clear", "grab",
+], key=len, reverse=True)
+
+
 def _format_inventory(inv_list):
     if not inv_list:
         return "Inventory: (empty)<BR>"
     lines = ["Inventory:"]
     for item in inv_list:
         lines.append(f"- {item}")
+    return "<BR>".join(lines) + "<BR>"
+
+def _format_equipment(equipment):
+    lines = ["Equipment:"]
+    for slot, item in equipment.items():
+        if item is None:
+            lines.append(f" {slot.capitalize()}: (empty)")
+        elif isinstance(item, dict):
+            name = item.get("name", "Unknown")
+            stats = []
+            if "damage" in item:
+                stats.append(f"+{item['damage']} damage")
+            if "armor" in item:
+                stats.append(f"+{item['armor']} defense")
+            stat_str = f" ({', '.join(stats)})" if stats else ""
+            lines.append(f" {slot.capitalize()}: {name}{stat_str}")
+        else:
+            lines.append(f" {slot.capitalize()}: {item}")
     return "<BR>".join(lines) + "<BR>"
 
 
@@ -47,6 +78,16 @@ def _brief_room_view(room_array, userId):
 
     return "<BR>".join(parts)
 
+def _persist_character(userId, player_char):
+    from user_db import get_user_by_id
+    user_doc = get_user_by_id(userId)
+    if user_doc:
+        char_id = user_doc.get("_player_character_id")
+    else:
+        char_id = None
+
+    if char_id:
+        player_char.update_player_character(char_id)
 
 def do_main_loop(userInput, userId):
     userInput = userInput.lower()
@@ -67,15 +108,27 @@ def do_main_loop(userInput, userId):
             + "move npc [north|south|east|west] - tell the NPC to move (omit direction for random)<BR>"
             + "inventory (i) - show your items<BR>"
             + "quests (q) - show your active quests<BR>"
+            + "equipment (eq) - show equipped items<BR>"
+            + "equip <item> - equip a weapon or armor from inventory<BR>"
+            + "unequip <slot> - remove a weapon or armor<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
-            + "fight npc - fights the npc"
+            + "fight npc - fights the npc<BR>"
+            + "bribe npc <amount> - offer gold to bribe the NPC into letting you pass<BR>"
+            + "offer npc <item> - offer an item from your inventory as a bribe<BR>"
+            + "examine/search/use/break/sit/read/eat/drink/hack <thing> - interact with room features or items"
         )
 
     # Inventory view
     if userInput in ("inventory", "inv", "i"):
-        inv = all_global_vars.get_player_character(userId).get_inventory()
-        return _format_inventory(inv)
+        pc = all_global_vars.get_player_character(userId)
+        inv = pc.get_inventory()
+        return _format_inventory(inv) + f"Gold: {pc.get_gold()}<BR>"
+
+    # Equipment view
+    if userInput in ("equipment", "eq"):
+        equipment = all_global_vars.get_player_character(userId).get_equipment()
+        return _format_equipment(equipment)
 
     # Quest log
     if userInput in ("quests", "quest", "q"):
@@ -90,6 +143,26 @@ def do_main_loop(userInput, userId):
     # Prepare current room_array for user action
     player_char = all_global_vars.get_player_character(userId)
     room_array = player_char.get_room_array()
+
+    # Equip item
+    if userInput.startswith("equip "):
+        item_name = userInput[len("equip "):].strip()
+        if not item_name:
+            return "Specify an item to equip.<BR>"
+        success, message = player_char.equip(item_name)
+        if success:
+            _persist_character(userId, player_char)
+        return message + "<BR>"
+
+    # Unequip item
+    if userInput.startswith("unequip "):
+        slot_name = userInput[len("unequip "):].strip()
+        if not slot_name:
+            return "Specify an slot (weapon/armor) to unequip.<BR>"
+        success, message = player_char.equip(slot_name)
+        if success:
+            _persist_character(userId, player_char)
+        return message + "<BR>"
 
     # Pick up
     for prefix in ("take ", "pickup ", "pick up ", "grab "):
@@ -190,6 +263,23 @@ def do_main_loop(userInput, userId):
         return room_array.talk_to_npc(userId, userInput[3:])
     if userInput == "fight npc":
         return room_array.fight_npc(userId)
+    if userInput.startswith("bribe npc"):
+        amount_str = userInput[len("bribe npc"):].strip()
+        if not amount_str.isdigit() or int(amount_str) <= 0:
+            gold = all_global_vars.get_player_character(userId).get_gold()
+            return f"Specify an amount of gold to offer. You have {gold} gold. Usage: bribe npc <amount>"
+        return room_array.bribe_npc(userId, int(amount_str))
+    if userInput.startswith("offer npc "):
+        item_name = userInput[len("offer npc "):].strip()
+        if not item_name:
+            return "Specify an item to offer. Usage: offer npc <item name><BR>"
+        result = room_array.bribe_npc_item(userId, item_name)
+        from user_db import get_user_by_id
+        user_doc = get_user_by_id(userId)
+        char_id = user_doc.get("_player_character_id") if user_doc else None
+        if char_id:
+            player_char.update_player_character(char_id)
+        return result
     if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
         direction = None
         if userInput.startswith("move npc"):
@@ -210,7 +300,15 @@ def do_main_loop(userInput, userId):
         return message + "<BR>"
     if userInput.startswith("version"):
         return all_global_vars.get_version(userId)
-    
+
+    # Generic interaction verbs — must come last so specific commands above take priority.
+    for verb in _INTERACT_VERBS:
+        if userInput == verb or userInput.startswith(verb + " "):
+            target = userInput[len(verb):].strip()
+            if not target:
+                return f"What do you want to {verb}?<BR>"
+            return room_array.interact_environment(userId, verb, target)
+
     return "Invalid input. Type help for options."
 
 def check_direction_for_npc(userId, room_array):
