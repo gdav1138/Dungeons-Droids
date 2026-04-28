@@ -576,6 +576,11 @@ class room_holder:
             if name.lower() == item_name.lower():
                 item = cur._items.pop(idx)
                 player_character.add_item(item)
+                try:
+                    # Inform quest system that an item was obtained (for obtain-item quests).
+                    player_character.record_item_obtained(item)
+                except AttributeError:
+                    pass
                 cur._map_html = None  # force redraw without the item
                 return True, name
         return False, "That item is not here."

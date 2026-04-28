@@ -1,9 +1,12 @@
 """
 Tests for Map Generator: generate_room_map output and drawing helpers.
-No AI or network; uses in-memory room_holder and Room.
 """
 import pytest
 from PIL import Image, ImageDraw
+
+
+# Test userId for room_holder calls that require it
+_TEST_USER_ID = "test-user"
 
 
 class TestGenerateRoomMap:
@@ -14,7 +17,7 @@ class TestGenerateRoomMap:
         from room import room_holder
         rh = room_holder()
         rh.add_empty_room(0, 0)
-        r = rh.get_current_room()
+        r = rh.get_current_room(_TEST_USER_ID)
         r._description = "A small chamber"
         r._items = []
         out = generate_room_map(rh, "Medieval")
@@ -27,8 +30,8 @@ class TestGenerateRoomMap:
         from room import room_holder
         rh = room_holder()
         rh.add_empty_room(0, 0)
-        rh.get_current_room()._description = "Dungeon"
-        rh.get_current_room()._items = []
+        rh.get_current_room(_TEST_USER_ID)._description = "Dungeon"
+        rh.get_current_room(_TEST_USER_ID)._items = []
         out = generate_room_map(rh, "Medieval")
         assert "data:image/png;base64," in out
 
@@ -37,8 +40,8 @@ class TestGenerateRoomMap:
         from room import room_holder
         rh = room_holder()
         rh.add_empty_room(0, 0)
-        rh.get_current_room()._description = "Server room"
-        rh.get_current_room()._items = []
+        rh.get_current_room(_TEST_USER_ID)._description = "Server room"
+        rh.get_current_room(_TEST_USER_ID)._items = []
         out = generate_room_map(rh, "cyberpunk")
         assert "data:image/png;base64," in out
 
@@ -47,8 +50,8 @@ class TestGenerateRoomMap:
         from room import room_holder
         rh = room_holder()
         rh.add_empty_room(0, 0)
-        rh.get_current_room()._description = "Engine room"
-        rh.get_current_room()._items = []
+        rh.get_current_room(_TEST_USER_ID)._description = "Engine room"
+        rh.get_current_room(_TEST_USER_ID)._items = []
         out = generate_room_map(rh, "steampunk")
         assert "data:image/png;base64," in out
 

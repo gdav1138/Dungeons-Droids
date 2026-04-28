@@ -5,7 +5,9 @@ from typing import Any, Dict
 from open_ai_api import call_ai
 
 
-ITEM_TYPES = {"weapons", "armor", "accessory", "consumable", "junk"}
+# Canonical item types used across the game (see `humanoid.Humanoid.equip`).
+# Note: some older prompts/models may return "weapons" (plural); we normalize it.
+ITEM_TYPES = {"weapon", "armor", "accessory", "consumable", "junk", "currency", "tool"}
 RARITIES = {"Common", "Uncommon", "Rare", "Epic", "Legendary"}
 
 ITEM_VALUES = {
@@ -35,7 +37,7 @@ ITEM_PROMPT = (
     "Rules:\n"
     "- Return ONLY minified JSON (no markdown, no comments)\n"
     "- Select one rarity: Common|Uncommon|Rare|Epic|Legendary\n"
-    "- Include a 'damage' value (1-20) ONLY for items whose type is 'weapons'\n"
+    "- Include a 'damage' value (1-20) ONLY for items whose type is 'weapon'\n"
     "- Include an 'armor' value (1-10) ONLY for items whose type is 'armor'\n"
     "- Skew more towards creating Common and Uncommon rarities\n"
 )
@@ -67,7 +69,18 @@ def _validate_ai_items(item):
     if not name or not isinstance(name,str):
         return None
 
-    item_type = item.get("type", "tool")
+    item_type = (item.get("type") or "tool")
+    if isinstance(item_type, str):
+        item_type = item_type.strip().lower()
+    else:
+        item_type = "tool"
+
+    # Normalize common variants
+    if item_type == "weapons":
+        item_type = "weapon"
+    if item_type == "armour":
+        item_type = "armor"
+
     if item_type not in ITEM_TYPES:
         item_type = "tool"
 

@@ -6,6 +6,7 @@
 from all_global_vars import all_global_vars
 from humanoid import Npc
 import hello
+from quests import format_quest_for_display
 
 # Sorted longest-first so multi-word phrases are matched before single words.
 _INTERACT_VERBS = sorted([
@@ -106,6 +107,7 @@ def do_main_loop(userInput, userId):
             + "describe npc - describes the npc in the room<BR>"
             + "move npc [north|south|east|west] - tell the NPC to move (omit direction for random)<BR>"
             + "inventory (i) - show your items<BR>"
+            + "quests (q) - show your active quests<BR>"
             + "equipment (eq) - show equipped items<BR>"
             + "equip <item> - equip a weapon or armor from inventory<BR>"
             + "unequip <slot> - remove a weapon or armor<BR>"
@@ -127,6 +129,16 @@ def do_main_loop(userInput, userId):
     if userInput in ("equipment", "eq"):
         equipment = all_global_vars.get_player_character(userId).get_equipment()
         return _format_equipment(equipment)
+
+    # Quest log
+    if userInput in ("quests", "quest", "q"):
+        quest_list = all_global_vars.get_player_character(userId).get_quests()
+        if not quest_list:
+            return "Active quests: (none)<BR>"
+        lines = ["Active quests:"]
+        for q in quest_list:
+            lines.append("- " + format_quest_for_display(q))
+        return "<BR>".join(lines) + "<BR>"
 
     # Prepare current room_array for user action
     player_char = all_global_vars.get_player_character(userId)
@@ -248,25 +260,29 @@ def do_main_loop(userInput, userId):
     if userInput == "describe npc":
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
-        return room_array.talk_to_npc(userId, userInput[3:])
+        result = room_array.talk_to_npc(userId, userInput[3:])
+        # NPC dialogue can add quests; persist character so quests survive refresh/rehydration.
+        _persist_character(userId, player_char)
+        return result
     if userInput == "fight npc":
-        return room_array.fight_npc(userId)
+        result = room_array.fight_npc(userId)
+        # Fighting can advance defeat-enemies quests and change gold/XP via quest rewards.
+        _persist_character(userId, player_char)
+        return result
     if userInput.startswith("bribe npc"):
         amount_str = userInput[len("bribe npc"):].strip()
         if not amount_str.isdigit() or int(amount_str) <= 0:
             gold = all_global_vars.get_player_character(userId).get_gold()
             return f"Specify an amount of gold to offer. You have {gold} gold. Usage: bribe npc <amount>"
-        return room_array.bribe_npc(userId, int(amount_str))
+        result = room_array.bribe_npc(userId, int(amount_str))
+        _persist_character(userId, player_char)
+        return result
     if userInput.startswith("offer npc "):
         item_name = userInput[len("offer npc "):].strip()
         if not item_name:
             return "Specify an item to offer. Usage: offer npc <item name><BR>"
         result = room_array.bribe_npc_item(userId, item_name)
-        from user_db import get_user_by_id
-        user_doc = get_user_by_id(userId)
-        char_id = user_doc.get("_player_character_id") if user_doc else None
-        if char_id:
-            player_char.update_player_character(char_id)
+        _persist_character(userId, player_char)
         return result
     if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
         direction = None
