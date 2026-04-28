@@ -748,6 +748,20 @@ class Npc(Humanoid):
 
     def allow_pass(self, userId):
         print("In allow pass")
+        # If we've already recorded that this NPC agreed to let the player pass
+        # (e.g., via bribe success), don't ask the AI again.
+        try:
+            history = list(self._past_conversation or [])
+        except Exception:
+            history = []
+        history_text = " ".join(str(x) for x in history).lower()
+        if (
+            "agreeing to let them pass" in history_text
+            or "steps aside. you may pass" in history_text
+            or "was allowed" in history_text
+        ):
+            return True
+
         call_string = "Based on the conversation: "
         for line in self._past_conversation:
             call_string += line + " "

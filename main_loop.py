@@ -260,25 +260,29 @@ def do_main_loop(userInput, userId):
     if userInput == "describe npc":
         return room_array.describe_npc(userId)
     if userInput.startswith("say"):
-        return room_array.talk_to_npc(userId, userInput[3:])
+        result = room_array.talk_to_npc(userId, userInput[3:])
+        # NPC dialogue can add quests; persist character so quests survive refresh/rehydration.
+        _persist_character(userId, player_char)
+        return result
     if userInput == "fight npc":
-        return room_array.fight_npc(userId)
+        result = room_array.fight_npc(userId)
+        # Fighting can advance defeat-enemies quests and change gold/XP via quest rewards.
+        _persist_character(userId, player_char)
+        return result
     if userInput.startswith("bribe npc"):
         amount_str = userInput[len("bribe npc"):].strip()
         if not amount_str.isdigit() or int(amount_str) <= 0:
             gold = all_global_vars.get_player_character(userId).get_gold()
             return f"Specify an amount of gold to offer. You have {gold} gold. Usage: bribe npc <amount>"
-        return room_array.bribe_npc(userId, int(amount_str))
+        result = room_array.bribe_npc(userId, int(amount_str))
+        _persist_character(userId, player_char)
+        return result
     if userInput.startswith("offer npc "):
         item_name = userInput[len("offer npc "):].strip()
         if not item_name:
             return "Specify an item to offer. Usage: offer npc <item name><BR>"
         result = room_array.bribe_npc_item(userId, item_name)
-        from user_db import get_user_by_id
-        user_doc = get_user_by_id(userId)
-        char_id = user_doc.get("_player_character_id") if user_doc else None
-        if char_id:
-            player_char.update_player_character(char_id)
+        _persist_character(userId, player_char)
         return result
     if userInput.startswith("move npc") or userInput.startswith("tell npc to move"):
         direction = None

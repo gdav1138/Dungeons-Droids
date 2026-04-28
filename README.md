@@ -45,7 +45,7 @@ managing their inventory, fighting, leveling up and more all through a web-based
         - OPENAI_API_KEY=<your API key>
 5. Run the program:
     - In bash:
-        - python app.py
+        - python application.py
 6. Open your browser and navigate to 127.0.0.1:5000
 
 ## How to play
