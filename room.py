@@ -628,11 +628,11 @@ class room_holder:
             return "There is no NPC here."
         return self.get_current_room(userId).get_npc().allow_pass(userId)
 
-    def fight_npc(self, userId):
+    def fight_npc(self, userId, action="attack"):
         room = self.get_current_room(userId)
         if not room or room._npc is None:
             return "There is no NPC here"
-        return room.get_npc().fight(userId)
+        return room.get_npc().fight(userId, action=action)
 
     def bribe_npc(self, userId, gold_amount):
         room = self.get_current_room(userId)

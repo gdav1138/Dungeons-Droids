@@ -113,7 +113,10 @@ def do_main_loop(userInput, userId):
             + "unequip <slot> - remove a weapon or armor<BR>"
             + "pickup/take <item> - pick up an item here<BR>"
             + "drop <item> - drop an item from inventory<BR>"
-            + "fight npc - fights the npc<BR>"
+            + "fight npc / attack npc - make a quick attack against the NPC<BR>"
+            + "heavy attack npc - slower, stronger attack against the NPC<BR>"
+            + "defend - brace yourself during combat<BR>"
+            + "flee - try to escape combat<BR>"
             + "bribe npc <amount> - offer gold to bribe the NPC into letting you pass<BR>"
             + "offer npc <item> - offer an item from your inventory as a bribe<BR>"
             + "examine/search/use/break/sit/read/eat/drink/hack <thing> - interact with room features or items"
@@ -264,8 +267,23 @@ def do_main_loop(userInput, userId):
         # NPC dialogue can add quests; persist character so quests survive refresh/rehydration.
         _persist_character(userId, player_char)
         return result
-    if userInput == "fight npc":
-        result = room_array.fight_npc(userId)
+    if userInput in ("fight npc", "attack npc", "attack"):
+        result = room_array.fight_npc(userId, action="attack")
+        # Fighting can advance defeat-enemies quests and change health/XP via quest rewards.
+        _persist_character(userId, player_char)
+        return result
+    if userInput in ("heavy attack npc", "heavy attack", "heavy"):
+        result = room_array.fight_npc(userId, action="heavy")
+        # Fighting can advance defeat-enemies quests and change health/XP via quest rewards.
+        _persist_character(userId, player_char)
+        return result
+    if userInput == "defend":
+        result = room_array.fight_npc(userId, action="defend")
+        # Fighting can advance defeat-enemies quests and change health/XP via quest rewards.
+        _persist_character(userId, player_char)
+        return result
+    if userInput == "flee":
+        result = room_array.fight_npc(userId, action="flee")
         # Fighting can advance defeat-enemies quests and change gold/XP via quest rewards.
         _persist_character(userId, player_char)
         return result
