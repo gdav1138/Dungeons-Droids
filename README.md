@@ -42,7 +42,8 @@ managing their inventory, fighting, leveling up and more all through a web-based
 4. Create a .env file
     - Place your keys in the file like so:
         - URI=<your MongoDB connection string>
-        - OPENAI_API_KEY=<your API key>
+        - GEMINI_API_KEY=<your Gemini API key>
+        - GEMINI_MODEL=gemini-3.1-flash-lite-preview
 5. Run the program:
     - In bash:
         - python application.py
