@@ -17,7 +17,7 @@ managing their inventory, fighting, leveling up and more all through a web-based
 ## Tech Stack
 
 - Backend: Python, Flask
-- AI-API: Google Gemini (Can use OpenAI, but Gemini response times are exceptionally faster)
+- AI-API: Anthropic Claude
 - Database: MongoDB
 - Image/Map Generation: Pillow
 - Authentication: bcrypt
@@ -28,7 +28,7 @@ managing their inventory, fighting, leveling up and more all through a web-based
 ### Prerequisites
 - Python 3.10+
 - MongoDB (local or cloud)
-- Google Gemini API key
+- Anthropic API key
 
 ### Installation
 1. Clone the repository
@@ -42,8 +42,8 @@ managing their inventory, fighting, leveling up and more all through a web-based
 4. Create a .env file
     - Place your keys in the file like so:
         - URI=<your MongoDB connection string>
-        - GEMINI_API_KEY=<your Gemini API key>
-        - GEMINI_MODEL=gemini-3.1-flash-lite-preview
+        - ANTHROPIC_API_KEY=<your Anthropic API key>
+        - CLAUDE_MODEL=claude-haiku-4-5-20251001
 5. Run the program:
     - In bash:
         - python application.py

@@ -1,5 +1,5 @@
 flask
-google-genai
+anthropic
 python-dotenv
 pymongo
 bcrypt

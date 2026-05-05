@@ -696,8 +696,14 @@ class Npc(Humanoid):
         }
 
     def talk(self, userId, talk_string):
-        call_string = "For the NPC named " + self._name + " with the descrption " + self._description
-        call_string += " with the conversation history: "
+        call_string = "For the NPC named " + self._name + " with the description " + self._description
+        call_string += (
+            " Respond in-character and reflect the relationship so far. "
+            "If the player has attacked, wounded, defended against, or fled from this NPC, "
+            "the NPC should remember that and react with appropriate fear, anger, caution, respect, "
+            "or grudging restraint based on their personality. "
+        )
+        call_string += "Conversation and event history: "
         for line in (self._past_conversation or []):
             call_string += line + " "
         call_string += "And the current thing they're saying is: " + talk_string
@@ -884,6 +890,30 @@ class Npc(Humanoid):
 
         result = resolve_combat_turn(player_char, self, action)
 
+        action_text = {
+            "attack": "a quick attack",
+            "heavy": "a heavy attack",
+            "defend": "a defensive stance",
+            "flee": "an attempt to flee",
+        }.get(result["action"], result["action"])
+
+        combat_note = (
+            "Combat note: The player used "
+            + action_text
+            + f" against {self._name}. "
+            + f"The player dealt {result['player_damage']} damage. "
+            + f"{self._name} dealt {result['npc_damage']} damage. "
+            + f"Player HP ended at {result['player_health']}/{result['player_max_health']}. "
+            + f"{self._name} HP ended at {result['npc_health']}/{result['npc_max_health']}. "
+        )
+        if result["fled"]:
+            combat_note += "The player broke away from the fight. "
+        if result["npc_defeated"]:
+            combat_note += f"{self._name} was defeated. "
+        if result["player_defeated"]:
+            combat_note += "The player was defeated. "
+        self._past_conversation.append(combat_note)
+
         if result["npc_defeated"]:
             old_npc_id = getattr(cur_room, "_npc_id", None)
 
@@ -905,14 +935,10 @@ class Npc(Humanoid):
             except AttributeError:
                 pass
         elif getattr(self, "_id", None) is not None:
-            self.update_npc(self._id, {"health": self._health})
-
-        action_text = {
-            "attack": "a quick attack",
-            "heavy": "a heavy attack",
-            "defend": "a defensive stance",
-            "flee": "an attempt to flee",
-        }.get(result["action"], result["action"])
+            self.update_npc(self._id, {
+                "health": self._health,
+                "conversations": self._past_conversation,
+            })
 
         fight_response = call_ai(
             "Write one short paragraph narrating this text-adventure combat turn. "
