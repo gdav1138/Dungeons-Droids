@@ -713,8 +713,14 @@ class Npc(Humanoid):
         }
 
     def talk(self, userId, talk_string):
-        call_string = "For the NPC named " + self._name + " with the descrption " + self._description
-        call_string += " with the conversation history: "
+        call_string = "For the NPC named " + self._name + " with the description " + self._description
+        call_string += (
+            " Respond in-character and reflect the relationship so far. "
+            "If the player has attacked, wounded, defended against, or fled from this NPC, "
+            "the NPC should remember that and react with appropriate fear, anger, caution, respect, "
+            "or grudging restraint based on their personality. "
+        )
+        call_string += "Conversation and event history: "
         for line in (self._past_conversation or []):
             call_string += line + " "
         call_string += "And the current thing they're saying is: " + talk_string
@@ -892,65 +898,97 @@ class Npc(Humanoid):
             )
             return narrative + f"<BR>{self._name} keeps your {item_display} and blocks your path. (You had a {chance}% chance.)"
 
-    def fight(self, userId):
+    def fight(self, userId, action="attack"):
         player_char = all_global_vars.get_player_character(userId)
-        weapon_bonus = player_char.get_equipment_bonus("damage")
-        armor_bonus = player_char.get_equipment_bonus("armor")
         room_array = player_char.get_room_array()
         cur_room = room_array.get_current_room(userId)
 
-        winchance = random.randint(0, 110)
-        winchance += player_char._str * 2
-        winchance += player_char._dex * 2
-        winchance += weapon_bonus * 3
-        winchance += armor_bonus * 2
-        
-        if self._toughness > winchance:
-            playerWins = False
-            print(f"Playerwins false: WinC {winchance} tougheness {self._toughness}")
-        else:
-            playerWins = True
-        print(f"Playerwins true: WinC {winchance} tougheness {self._toughness}")
+        from combat import resolve_combat_turn
 
-        # --- kill npc in room (memory + DB) ---
-        old_npc_id = getattr(cur_room, "_npc_id", None)
+        result = resolve_combat_turn(player_char, self, action)
 
-        cur_room._npc = None
-        cur_room._npc_id = None
+        action_text = {
+            "attack": "a quick attack",
+            "heavy": "a heavy attack",
+            "defend": "a defensive stance",
+            "flee": "an attempt to flee",
+        }.get(result["action"], result["action"])
 
-        # persist: room no longer has an npc
-        if getattr(cur_room, "_id", None) is not None:
-            cur_room.update_room(cur_room._id, {"_npc_id": None})
+        combat_note = (
+            "Combat note: The player used "
+            + action_text
+            + f" against {self._name}. "
+            + f"The player dealt {result['player_damage']} damage. "
+            + f"{self._name} dealt {result['npc_damage']} damage. "
+            + f"Player HP ended at {result['player_health']}/{result['player_max_health']}. "
+            + f"{self._name} HP ended at {result['npc_health']}/{result['npc_max_health']}. "
+        )
+        if result["fled"]:
+            combat_note += "The player broke away from the fight. "
+        if result["npc_defeated"]:
+            combat_note += f"{self._name} was defeated. "
+        if result["player_defeated"]:
+            combat_note += "The player was defeated. "
+        self._past_conversation.append(combat_note)
 
-        # optional cleanup: delete npc document too
-        if old_npc_id is not None:
-            try:
-                mongo_id = ObjectId(old_npc_id) if not isinstance(old_npc_id, ObjectId) else old_npc_id
-                npc_collection.delete_one({"_id": mongo_id})
-            except Exception as e:
-                print("Warning: failed to delete npc doc:", e)
+        if result["npc_defeated"]:
+            old_npc_id = getattr(cur_room, "_npc_id", None)
 
-        # If the player won, update any defeat-enemies quests before generating narration.
-        if playerWins:
+            cur_room._npc = None
+            cur_room._npc_id = None
+
+            if getattr(cur_room, "_id", None) is not None:
+                cur_room.update_room(cur_room._id, {"_npc_id": None})
+
+            if old_npc_id is not None:
+                try:
+                    mongo_id = ObjectId(old_npc_id) if not isinstance(old_npc_id, ObjectId) else old_npc_id
+                    npc_collection.delete_one({"_id": mongo_id})
+                except Exception as e:
+                    print("Warning: failed to delete npc doc:", e)
+
             try:
                 player_char.record_enemy_kill(1)
             except AttributeError:
                 pass
-        fight_response = call_ai("Describe a fight between the player and the npc. The player's name is"
-                                 + f"{player_char._name} and the NPC's name is {self._name} and the NPCs "
-                                 + f"description is {self._description}. The NPCs friendliness is"
-                                 + f"{self._friendlyness} out of 100, and the NPCs toughness is {self._toughness} "
-                                 + f"out of 100. The the player winning is {playerWins}. This fight is to the death, "
-                                 + "so if player winning is true then the npc dies, "
-                                 + "if player winning is false the player dies")
+        elif getattr(self, "_id", None) is not None:
+            self.update_npc(self._id, {
+                "health": self._health,
+                "conversations": self._past_conversation,
+            })
 
-        
-        if playerWins is False:
-            print ("Playerwins false, restarting")
+        fight_response = call_ai(
+            "Write one short paragraph narrating this text-adventure combat turn. "
+            + f"The player is {player_char._name}. The NPC is {self._name}. "
+            + f"The NPC description is {self._description}. "
+            + f"The player chose {action_text}. "
+            + f"Player dealt {result['player_damage']} damage. "
+            + f"NPC dealt {result['npc_damage']} damage. "
+            + f"Player HP is {result['player_health']}/{result['player_max_health']}. "
+            + f"NPC HP is {result['npc_health']}/{result['npc_max_health']}. "
+            + f"NPC defeated: {result['npc_defeated']}. Player defeated: {result['player_defeated']}. "
+            + f"Player fled: {result['fled']}. "
+            + "Do not decide new mechanics; only narrate these facts."
+        )
+
+        status = (
+            f"<BR><em>You: {result['player_health']}/{result['player_max_health']} HP"
+            + (f" | {self._name}: {result['npc_health']}/{result['npc_max_health']} HP" if not result["npc_defeated"] else "")
+            + "</em>"
+        )
+
+        if result["fled"]:
+            return fight_response + status + "<BR>You are no longer pressing the attack."
+
+        if result["npc_defeated"]:
+            return fight_response + status + f"<BR>{self._name} is defeated."
+
+        if result["player_defeated"]:
+            print("Player defeated, restarting")
             import hello
-            return fight_response + "<BR>" + hello.restart_game(userId)
-        
-        return fight_response
+            return fight_response + status + "<BR>" + hello.restart_game(userId)
+
+        return fight_response + status
 
     def store_npc(self):
         """
