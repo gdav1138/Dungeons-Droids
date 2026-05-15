@@ -288,7 +288,24 @@ class PlayerCharacter(Humanoid):
                 continue
             if (q.get("status") or "active") != "active":
                 continue
-            target_name = str(q.get("target") or "").strip().lower()
+            raw_target = q.get("target")
+            if isinstance(raw_target, int):
+                target_count = int(raw_target)
+            else:
+                ts = str(raw_target or "").strip()
+                if ts.isdigit():
+                    target_count = int(ts)
+                else:
+                    target_count = 0
+            if target_count > 0:
+                current = int(q.get("progress", 0) or 0)
+                current += 1
+                q["progress"] = current
+                if current >= target_count:
+                    q["status"] = "completed"
+                    self._award_quest_rewards_if_needed(q)
+                continue
+            target_name = str(raw_target or "").strip().lower()
             if not target_name:
                 continue
             if name == target_name:
