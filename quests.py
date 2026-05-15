@@ -7,7 +7,7 @@ rehydrated back into a player character.
     {
         "id": <str uuid>,
         "type": <one of QUEST_*>,
-        "target": <int|str>,    # e.g. kill count, item name, gold amount
+        "target": <int|str>,    # kill count, items to collect / legacy item name, gold amount
         "description": <str>,
         "quest_giver": <str>,   # NPC name
         "reward_description": <str>,
@@ -20,7 +20,8 @@ rehydrated back into a player character.
 
 Win conditions:
 - defeat_enemies: quest is complete when progress >= target (enemy kills).
-- obtain_item: quest is complete when the matching item is obtained once.
+- obtain_item: quest is complete when progress >= target. Target may be an int
+  (collect that many items from the world) or a legacy string (one specific item name).
 - obtain_gold: quest is complete when the player's gold >= target.
 """
 import random
@@ -30,14 +31,6 @@ import uuid
 QUEST_DEFEAT_ENEMIES = "defeat_enemies"
 QUEST_OBTAIN_ITEM = "obtain_item"
 QUEST_OBTAIN_GOLD = "obtain_gold"
-
-# Item names that can be requested (overlap with room loot where possible)
-QUEST_ITEMS = [
-    "rusty dagger", "leather satchel", "bronze coin", "torch", "old map",
-    "copper key", "medkit", "data shard", "plasma cell", "gear fragment",
-    "rations", "rope", "gemstone", "ancient scroll", "oil flask",
-    "metal scrap", "sealed vial",
-]
 
 
 def create_random_quest(theme: str, quest_giver_name: str) -> dict:
@@ -54,36 +47,36 @@ def create_random_quest(theme: str, quest_giver_name: str) -> dict:
     quest_id = str(uuid.uuid4())
 
     if quest_type == QUEST_DEFEAT_ENEMIES:
-        count = random.choice([3, 5, 7, 10])
+        count = 1
         description = (
-            f"Defeat {count} enemies or monsters. "
+            f"Defeat {count} enemy or monster. "
             f"Theme: {theme}. Return when the task is done."
         )
         target = count
-        reward_xp = 20 * count
-        reward_gold = 10 * count
+        reward_xp = 12
+        reward_gold = 5
         reward = f"{reward_xp} XP and {reward_gold} gold"
 
     elif quest_type == QUEST_OBTAIN_ITEM:
-        item_name = random.choice(QUEST_ITEMS)
+        need = random.randint(5, 10)
         description = (
-            f"Find and bring back a {item_name}. "
-            f"Theme: {theme}. They need it for their own reasons."
+            f"Pick up {need} different items from the dungeon (anything you find counts). "
+            f"Theme: {theme}. They are restocking supplies."
         )
-        target = item_name
-        reward_xp = 60
-        reward_gold = 75
+        target = need
+        reward_xp = 4 * need
+        reward_gold = 3 * need
         reward = f"{reward_xp} XP and {reward_gold} gold"
 
     else:  # QUEST_OBTAIN_GOLD
-        amount = random.choice([50, 100, 200, 500])
+        amount = random.choice([20, 35, 50, 75])
         description = (
             f"Obtain {amount} gold (or equivalent currency) and deliver it. "
             f"Theme: {theme}. They have a debt to settle."
         )
         target = amount
-        reward_xp = 50
-        reward_gold = max(10, int(amount * 0.2))
+        reward_xp = 15
+        reward_gold = max(5, amount // 8)
         reward = f"{reward_xp} XP and {reward_gold} gold"
 
     return {
